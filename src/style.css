@@ -1,0 +1,292 @@
+@import '@fontsource-variable/mona-sans/wdth.css';
+@import '@fontsource/instrument-serif/400.css';
+@import '@fontsource/instrument-serif/400-italic.css';
+
+/* Paleta A — capacete */
+:root {
+  --amarelo: #ffd400;
+  --verde: #00843d;
+  --azul: #1e4fb4;
+  --escuro: #0f2a1d;
+  --escuro-2: #1b3a2b;
+  --creme: #f2efe3;
+  --creme-2: #e4e0cf;
+  --tinta: #0f2a1d;
+
+  --sans: 'Mona Sans Variable', system-ui, sans-serif;
+  --serif: 'Instrument Serif', Georgia, serif;
+  --margem: clamp(16px, 2.2vw, 32px);
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  background: var(--creme);
+  color: var(--tinta);
+  font-family: var(--sans);
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+html.lenis, html.lenis body { height: auto; }
+.lenis.lenis-smooth { scroll-behavior: auto !important; }
+a { color: inherit; text-decoration: none; }
+button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
+
+/* Fundo topográfico */
+.topo {
+  position: fixed; inset: 0;
+  width: 100%; height: 100%;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Barra do topo */
+.barra {
+  position: fixed; top: 0; left: 0; right: 0;
+  z-index: 50;
+  display: flex; justify-content: space-between; align-items: flex-start;
+  padding: var(--margem);
+  pointer-events: none;
+}
+.barra > * { pointer-events: auto; }
+.marca { display: flex; flex-direction: column; line-height: .82; }
+.marca__a {
+  font-family: var(--serif);
+  font-size: clamp(22px, 2vw, 30px);
+  letter-spacing: -.01em;
+}
+.marca__b {
+  font-weight: 800; font-stretch: 125%;
+  font-size: clamp(19px, 1.75vw, 26px);
+  letter-spacing: -.02em;
+}
+.barra__nav { display: flex; gap: 8px; }
+/* "S" do Senna centralizado no topo: contorno; enche quando o mouse chega perto */
+.barra__logo {
+  position: absolute; left: 0; right: 0; margin: 0 auto; /* centraliza sem transform (a entrada anima o transform) */
+  top: calc(var(--margem) - 2px);
+  width: clamp(54px, 4.8vw, 74px); display: block;
+}
+.barra__logo svg { display: block; width: 100%; height: auto; overflow: visible; }
+.logo-topo__contorno path { fill: none; stroke: var(--escuro); stroke-width: 14; stroke-linejoin: round; }
+.logo-topo__cheio path { fill: var(--escuro); }
+.pill {
+  display: inline-flex; align-items: center; gap: 8px;
+  height: 40px; padding: 0 16px;
+  background: var(--amarelo); color: var(--escuro);
+  border-radius: 8px;
+  font-size: 12px; font-weight: 700; font-stretch: 112%;
+  text-transform: uppercase; letter-spacing: .02em;
+  transition: transform .4s cubic-bezier(.2,.8,.2,1);
+}
+.pill:hover { transform: translateY(-2px); }
+.pill__ponto { width: 7px; height: 7px; border-radius: 50%; background: var(--verde); box-shadow: 0 0 0 2px var(--escuro); }
+.menu {
+  width: 40px; height: 40px; border-radius: 8px;
+  background: var(--creme); border: 1px solid rgba(15,42,29,.18);
+  display: grid; place-content: center; gap: 5px;
+}
+.menu i { display: block; width: 16px; height: 1.5px; background: var(--escuro); }
+.menu i:last-child { width: 10px; justify-self: end; }
+
+/* HERO */
+.hero {
+  position: relative;
+  height: 100svh; min-height: 560px;
+  overflow: hidden;
+  z-index: 1;
+}
+.hero__palavra {
+  position: absolute; left: 50%; top: 47%;
+  margin: 0; /* centralizado pelo GSAP (xPercent/yPercent) */
+  font-family: var(--serif); font-style: italic;
+  font-size: clamp(140px, 30vw, 560px);
+  line-height: .8; letter-spacing: -.04em;
+  color: var(--creme-2);
+  white-space: nowrap;
+  user-select: none;
+}
+.hero__foto {
+  /* Ancorada na base: a jaqueta e os ombros aparecem inteiros. 12% maior que
+     a tela, passando 36px da base (folga escondida para o deslize do mouse,
+     assim a borda de baixo nunca aparece). As laterais somem suavemente
+     (máscara), para os ombros não terminarem num corte reto. */
+  position: absolute; left: 50%; bottom: -36px;
+  height: 112%;
+  aspect-ratio: 2000 / 1600; /* centralizado pelo GSAP (xPercent) */
+  -webkit-mask-image: linear-gradient(to right, transparent 0, #000 7%, #000 93%, transparent 100%);
+          mask-image: linear-gradient(to right, transparent 0, #000 7%, #000 93%, transparent 100%);
+}
+.hero__foto img {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  object-fit: cover; display: block;
+}
+.hero__gl {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  pointer-events: none;
+}
+
+.lente {
+  position: fixed; left: 0; top: 0;
+  width: 0; height: 0;
+  z-index: 5; pointer-events: none;
+}
+.lente::before {
+  content: ''; position: absolute;
+  left: calc(var(--r, 0px) * -1); top: calc(var(--r, 0px) * -1);
+  width: calc(var(--r, 0px) * 2); height: calc(var(--r, 0px) * 2);
+  border-radius: 50%;
+  border: 2px solid var(--amarelo);
+  box-shadow: 0 0 0 1px var(--escuro), inset 0 0 0 1px var(--escuro);
+  opacity: var(--o, 0);
+}
+.lente span {
+  position: absolute; left: 0; top: calc(var(--r, 0px) + 12px);
+  transform: translateX(-50%);
+  white-space: nowrap;
+  font-size: 10px; font-weight: 700; font-stretch: 115%;
+  text-transform: uppercase; letter-spacing: .08em;
+  background: var(--escuro); color: var(--amarelo);
+  padding: 5px 9px; border-radius: 4px;
+  opacity: var(--o, 0);
+}
+
+.hero__titulo {
+  position: absolute; left: var(--margem); bottom: calc(var(--margem) + 92px);
+  margin: 0; z-index: 3;
+  display: flex; flex-direction: column; gap: 6px;
+  font-weight: inherit;
+}
+.hero__titulo span:first-child {
+  font-family: var(--serif); font-style: italic;
+  font-size: clamp(26px, 2.4vw, 40px); line-height: 1;
+}
+.hero__titulo span:last-child {
+  font-size: 10px; font-weight: 700; font-stretch: 115%;
+  text-transform: uppercase; letter-spacing: .08em; opacity: .7;
+}
+
+
+.hero__dica {
+  position: absolute; right: var(--margem); bottom: var(--margem);
+  margin: 0; z-index: 3;
+  display: flex; align-items: center; gap: 8px;
+  font-size: 10px; font-weight: 700; font-stretch: 115%;
+  text-transform: uppercase; letter-spacing: .08em;
+  /* fundinho creme: o texto fica em cima da jaqueta escura */
+  padding: 9px 12px;
+  background: rgba(242,239,227,.82);
+  backdrop-filter: blur(6px);
+  border: 1px solid rgba(15,42,29,.16); border-radius: 8px;
+}
+.hero__credito {
+  position: absolute; left: 50%; bottom: calc(var(--margem) - 4px);
+  transform: translateX(-50%);
+  margin: 0; z-index: 3;
+  font-size: 9px; letter-spacing: .04em; opacity: .55;
+  white-space: nowrap;
+}
+.hero__credito a { text-decoration: underline; text-underline-offset: 2px; }
+@media (max-width: 720px) { .hero__credito { left: auto; right: var(--margem); transform: none; bottom: 6px; } }
+.hero__dica-ponto { width: 8px; height: 8px; border-radius: 50%; background: var(--verde); animation: pulsa 1.6s ease-in-out infinite; }
+@keyframes pulsa { 50% { transform: scale(1.8); opacity: .3; } }
+
+@media (max-width: 720px) {
+  .hero__foto { height: min(100%, 160vw); bottom: 0; -webkit-mask-image: none; mask-image: none; } /* celular: encaixe pela base */
+  .hero__palavra { top: 40%; }
+  .hero__titulo { bottom: calc(var(--margem) + 74px); }
+    .hero__dica { bottom: calc(var(--margem) + 18px); }
+}
+.hero__dica-toque { display: none; }
+@media (hover: none) {
+  .hero__dica-mouse { display: none; }
+  .hero__dica-toque { display: inline; }
+}
+@media (hover: none) {
+  .lente span { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hero__dica-ponto { animation: none; }
+}
+
+/* ---------- PRELOADER ---------- */
+.preloader { gap: 26px; will-change: transform; }
+.preloader__logo { width: min(240px, 52vw); aspect-ratio: 1; position: relative; }
+.preloader__logo svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.preloader__logo .contorno path {
+  fill: none; stroke: var(--escuro); stroke-width: 9;
+  stroke-linejoin: round; stroke-linecap: round;
+}
+.preloader__logo .preenchido path { fill: var(--escuro); }
+.preloader__barra {
+  width: min(240px, 52vw); height: 2px;
+  background: rgba(15,42,29,.12); overflow: hidden; border-radius: 2px;
+}
+.preloader__barra i { display: block; height: 100%; width: 100%; background: var(--amarelo); transform-origin: left; transform: scaleX(0); }
+.preloader__num {
+  margin: 0; font-size: 10px; font-weight: 700; font-stretch: 115%;
+  letter-spacing: .12em; color: var(--escuro); opacity: .6;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- CARD DA ÚLTIMA CORRIDA (esquerda) ---------- */
+.corrida {
+  position: absolute; left: var(--margem); bottom: var(--margem);
+  width: 132px; height: 262px; z-index: 6;
+  display: flex; flex-direction: column; align-items: center;
+  padding: 28px 12px 14px;
+  color: var(--escuro); text-align: center;
+  cursor: default;
+}
+.corrida__moldura { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.corrida__moldura path {
+  fill: rgba(242,239,227,.72); stroke: var(--escuro); stroke-width: 1.2;
+  vector-effect: non-scaling-stroke;
+  transition: fill .35s;
+}
+.corrida:hover .corrida__moldura path { fill: rgba(242,239,227,.92); }
+.corrida > *:not(.corrida__moldura) { position: relative; }
+.corrida__aba {
+  position: absolute !important; left: 11px; top: 4px;
+  font-size: 8.5px; font-weight: 800; font-stretch: 115%;
+  text-transform: uppercase; letter-spacing: .08em;
+}
+.corrida__pista { width: 108px; height: 72px; display: block; }
+.corrida__gp, .corrida__titulo {
+  margin: 4px 0 0;
+  font-size: 10px; font-weight: 800; font-stretch: 115%;
+  text-transform: uppercase; letter-spacing: .04em; line-height: 1.15;
+}
+.corrida__data, .corrida__anos {
+  margin: 3px 0 0; font-family: var(--serif); font-size: 12px; line-height: 1;
+}
+.corrida__linha { width: 76%; height: 1px; background: var(--escuro); opacity: .35; margin: 12px 0 10px; }
+.corrida__icone { width: 74px; height: auto; display: block; overflow: visible; }
+.corrida__icone .louro ellipse { fill: var(--escuro); }
+.corrida__icone .talo { fill: none; stroke: var(--escuro); stroke-width: 1.4; stroke-linecap: round; }
+.corrida__icone .casco { fill: var(--amarelo); stroke: var(--escuro); stroke-width: 1.6; }
+.corrida__icone .faixa { fill: none; stroke: var(--verde); stroke-width: 2.4; }
+.corrida__icone .visor { fill: var(--escuro); }
+/* o título fica logo acima do card, no fundo creme (ao lado ficava em cima da jaqueta) */
+.hero__titulo { left: var(--margem); bottom: calc(var(--margem) + 262px + 18px); }
+/* barra que enche durante os 2 s com o mouse parado no card */
+.corrida__carga {
+  position: absolute !important; left: 12px; right: 12px; bottom: 7px;
+  height: 2px; background: rgba(15,42,29,.12); border-radius: 2px; overflow: hidden;
+}
+.corrida__carga i { display: block; height: 100%; background: var(--amarelo); transform-origin: left; transform: scaleX(0); }
+@media (max-width: 900px) {
+  .corrida { display: none; }
+  .hero__titulo { left: var(--margem); bottom: calc(var(--margem) + 30px); }
+}
+/* celular estreito: o "S" do topo encostaria no botão Instituto */
+@media (max-width: 520px) { .barra__logo { display: none; } }
+
+/* Com a cortina invertendo o fundo, os textos escuros viram creme quando a
+   borda da cortina passa por eles (classes ligadas em main.js) */
+.marca, .hero__titulo { transition: color .35s; }
+.logo-topo__contorno path, .logo-topo__cheio path { transition: stroke .35s, fill .35s; }
+body.cortina-topo .marca { color: var(--creme); }
+body.cortina-topo .logo-topo__contorno path { stroke: var(--creme); }
+body.cortina-topo .logo-topo__cheio path { fill: var(--creme); }
+body.cortina-base .hero__titulo { color: var(--creme); }

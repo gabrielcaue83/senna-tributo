@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Ayrton Senna — Homenagem</title>
+  <meta name="description" content="Homenagem de fã a Ayrton Senna: três títulos, 41 vitórias, 65 poles. Projeto não oficial." />
+  <meta name="theme-color" content="#f2efe3" />
+</head>
+<body data-tema="claro">
+  <!-- Abertura -->
+  <div class="loader" aria-hidden="true">
+    <div class="loader__num"><span class="js-loader-num">0</span></div>
+    <div class="loader__faixa loader__faixa--verde"></div>
+    <div class="loader__faixa loader__faixa--azul"></div>
+  </div>
+
+  <canvas class="topo" aria-hidden="true"></canvas>
+
+  <header class="topo-bar">
+    <a href="#inicio" class="marca" aria-label="Ayrton Senna, início">
+      <span class="marca__a">Ayrton</span>
+      <span class="marca__b">SENNA</span>
+    </a>
+    <nav class="topo-bar__nav">
+      <a href="#temporadas" class="pill">Temporadas</a>
+      <a href="#numeros" class="pill pill--fantasma">Números</a>
+    </nav>
+  </header>
+
+  <main>
+    <!-- 1. HERO -->
+    <section class="hero" id="inicio" data-tema="claro">
+      <h1 class="hero__palavra" aria-label="Ayrton Senna">SENNA</h1>
+      <canvas class="hero__gl" aria-hidden="true"></canvas>
+      <svg class="hero__traco" viewBox="0 0 800 360" aria-hidden="true">
+        <path d="M30,260 C120,250 170,120 250,110 C330,100 300,250 380,240 C470,230 470,70 560,60 C640,52 600,210 660,200 C720,190 740,120 780,90" />
+        <path d="M300,300 C420,280 560,290 720,250" class="fino" />
+      </svg>
+      <div class="lente" aria-hidden="true"><span>raio-x</span></div>
+
+      <div class="widget">
+        <span class="widget__rotulo">Campeão mundial</span>
+        <span class="widget__anos">1988 · 1990 · 1991</span>
+        <span class="widget__linha"></span>
+        <span class="widget__rotulo">Carro nº 12 · 1988</span>
+      </div>
+      <p class="hero__rodape">
+        <span>Ayrton Senna da Silva</span>
+        <span>São Paulo · 21.03.1960</span>
+      </p>
+      <p class="hero__dica">passe o mouse no capacete</p>
+    </section>
+
+    <!-- 2. FAIXA GIGANTE -->
+    <section class="faixa" data-tema="escuro" aria-label="Simplesmente o melhor">
+      <div class="faixa__linha js-faixa" data-dir="1">
+        <span>Simplesmente <em>o melhor</em> —&nbsp;</span><span>Simplesmente <em>o melhor</em> —&nbsp;</span><span>Simplesmente <em>o melhor</em> —&nbsp;</span>
+      </div>
+      <div class="faixa__linha faixa__linha--b js-faixa" data-dir="-1">
+        <span>3× campeão do mundo —&nbsp;</span><span>3× campeão do mundo —&nbsp;</span><span>3× campeão do mundo —&nbsp;</span>
+      </div>
+      <div class="faixa__card">
+        <div class="faixa__listras"><i></i><i></i></div>
+        <span class="faixa__num">12</span>
+        <span class="faixa__leg">McLaren MP4/4 · 1988</span>
+      </div>
+    </section>
+
+    <!-- 3. MANIFESTO -->
+    <section class="manifesto" data-tema="escuro">
+      <p class="manifesto__selo">São Paulo → Mundo · 1984 — 1994</p>
+      <h2 class="manifesto__texto js-palavras">
+        Mais <em>rápido</em> na chuva, mais <em>fiel</em> ao limite, mais <em>Brasil</em> a cada domingo. Dez anos que mudaram o jeito de pilotar.
+      </h2>
+    </section>
+
+    <!-- 4. MOMENTOS (galeria espalhada) -->
+    <section class="momentos" id="momentos" data-tema="claro">
+      <article class="quadro q1" data-vel="0.15">
+        <div class="quadro__arte arte--chuva"><img data-foto="monaco-1984" alt="" /><b>13º → 2º</b></div>
+        <h3>Mônaco, 1984</h3>
+        <p>Com a modesta Toleman, debaixo de chuva, larga em 13º e chega em segundo.</p>
+      </article>
+
+      <blockquote class="citacao c1" data-vel="-0.08">
+        Na chuva, a pista <em>sumia</em> para os outros. Para ele, ela <em>aparecia.</em>
+      </blockquote>
+
+      <article class="quadro q2" data-vel="0.35">
+        <div class="quadro__arte arte--xadrez"><img data-foto="estoril-1985" alt="" /><b>P1</b></div>
+        <h3>Estoril, 1985</h3>
+        <p>Primeira vitória na Fórmula 1. De novo com chuva, de novo sozinho na frente.</p>
+      </article>
+
+      <article class="quadro q3" data-vel="0.05">
+        <div class="quadro__arte arte--titulo"><img data-foto="suzuka-1988" alt="" /><b>1</b></div>
+        <h3>Suzuka, 1988</h3>
+        <p>O carro quase morre na largada, ele cai para o meio do pelotão, vence e leva o primeiro título.</p>
+      </article>
+
+      <article class="quadro q4" data-vel="0.25">
+        <div class="quadro__arte arte--marcha"><img data-foto="interlagos-1991" alt="" /><b>6ª</b></div>
+        <h3>Interlagos, 1991</h3>
+        <p>Primeira vitória em casa, terminando a prova com o câmbio preso na sexta marcha.</p>
+      </article>
+
+      <blockquote class="citacao c2" data-vel="-0.12">
+        Seis vitórias em <em>Mônaco.</em> Ninguém venceu tantas vezes nas ruas do principado.
+      </blockquote>
+
+      <article class="quadro q5" data-vel="0.12">
+        <div class="quadro__arte arte--volta"><img data-foto="donington-1993" alt="" /><b>5º → 1º</b></div>
+        <h3>Donington, 1993</h3>
+        <p>Uma única volta, na chuva, para sair de quinto e assumir a liderança.</p>
+      </article>
+
+      <article class="quadro q6" data-vel="0.3">
+        <div class="quadro__arte arte--bandeira"><img data-foto="bandeira" alt="" /><b>BR</b></div>
+        <h3>A volta da bandeira</h3>
+        <p>Depois de cada vitória, a bandeira do Brasil na mão, pela pista inteira.</p>
+      </article>
+    </section>
+
+    <!-- 5. NÚMEROS (fixo) -->
+    <section class="numeros" id="numeros" data-tema="escuro">
+      <div class="numeros__palco">
+        <p class="numeros__selo">Em números · 1984 — 1994</p>
+        <div class="numeros__valor"><span class="js-num">0</span></div>
+        <div class="numeros__rotulos">
+          <span class="js-rot is-ativo">vitórias</span>
+          <span class="js-rot">pole positions</span>
+          <span class="js-rot">pódios</span>
+          <span class="js-rot">largadas</span>
+          <span class="js-rot">títulos mundiais</span>
+        </div>
+        <div class="numeros__pontos"><i></i><i></i><i></i><i></i><i></i></div>
+      </div>
+    </section>
+
+    <!-- 6. TEMPORADAS (rolagem lateral) -->
+    <section class="temporadas" id="temporadas" data-tema="amarelo">
+      <div class="temporadas__trilho js-trilho">
+        <div class="temp temp--abre">
+          <p class="temp__selo">1984 — 1994</p>
+          <h2>Onze<br><em>temporadas</em></h2>
+          <p class="temp__txt">Toleman, Lotus, McLaren e Williams. Role para atravessar a carreira, ano a ano.</p>
+        </div>
+      </div>
+      <div class="pista" aria-hidden="true">
+        <span class="pista__linha"></span>
+        <span class="pista__carro"></span>
+      </div>
+    </section>
+
+    <!-- 7. INSTITUTO + RODAPÉ -->
+    <section class="legado" data-tema="claro">
+      <p class="legado__selo">Legado</p>
+      <h2 class="legado__titulo">O que fica <em>depois</em><br>da bandeirada</h2>
+      <p class="legado__txt">Desde 1994, o Instituto Ayrton Senna trabalha pela educação pública no Brasil, um desejo que o próprio Ayrton deixou.</p>
+      <a class="pill pill--grande" href="https://institutoayrtonsenna.org.br/" target="_blank" rel="noopener">Conheça o Instituto ↗</a>
+    </section>
+
+    <footer class="rodape" data-tema="claro">
+      <div class="rodape__card">
+        <svg class="rodape__traco" viewBox="0 0 400 120" aria-hidden="true"><path d="M10,90 C80,80 100,20 160,25 C220,30 200,95 260,90 C320,85 330,30 390,20" /></svg>
+        <h2 class="rodape__titulo">Sempre <em>acelerando.</em></h2>
+        <div class="rodape__cols">
+          <nav>
+            <span class="rodape__rot">Páginas</span>
+            <a href="#inicio">Início</a>
+            <a href="#momentos">Momentos</a>
+            <a href="#numeros">Números</a>
+            <a href="#temporadas">Temporadas</a>
+          </nav>
+          <p class="rodape__aviso">Homenagem de fã, feita como estudo de design. Projeto <strong>não oficial</strong>, sem vínculo com a família Senna, o Instituto Ayrton Senna ou a Senna Brands.</p>
+        </div>
+        <div class="rodape__listras"><i></i><i></i><i></i></div>
+      </div>
+    </footer>
+  </main>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>

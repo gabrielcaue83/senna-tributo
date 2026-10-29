@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Ayrton Senna — Homenagem</title>
+  <meta name="description" content="Homenagem de fã a Ayrton Senna: três títulos, 41 vitórias, 65 poles. Projeto não oficial." />
+  <meta name="theme-color" content="#f2efe3" />
+  <!-- estilo mínimo do preloader já no HTML: aparece antes do CSS/JS carregar -->
+  <style>
+    html, body { background: #f2efe3; margin: 0; }
+    .preloader { position: fixed; inset: 0; z-index: 100; background: #f2efe3;
+      display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  </style>
+</head>
+<body>
+  <div class="preloader" aria-label="Carregando" role="status">
+    <div class="preloader__logo" aria-hidden="true"></div>
+    <div class="preloader__barra" aria-hidden="true"><i></i></div>
+    <p class="preloader__num" aria-hidden="true"><span>0</span>%</p>
+  </div>
+
+  <canvas class="topo" aria-hidden="true"></canvas>
+
+  <header class="barra">
+    <a href="#inicio" class="marca" aria-label="Ayrton Senna, início">
+      <span class="marca__a">Ayrton</span>
+      <span class="marca__b">SENNA</span>
+    </a>
+    <a href="#inicio" class="barra__logo" aria-label="Senna"></a>
+    <nav class="barra__nav">
+      <a href="https://institutoayrtonsenna.org.br/" target="_blank" rel="noopener" class="pill"><i class="pill__ponto"></i>Instituto</a>
+      <button class="menu" aria-label="Abrir menu"><i></i><i></i></button>
+    </nav>
+  </header>
+
+  <main>
+    <section class="hero" id="inicio">
+      <p class="hero__palavra" aria-hidden="true">SENNA</p>
+
+      <div class="hero__foto">
+        <img src="/fotos/senna-hero.webp" alt="Retrato de Ayrton Senna" width="2000" height="1600" />
+        <canvas class="hero__gl" aria-hidden="true"></canvas>
+      </div>
+
+      <div class="lente" aria-hidden="true"><span>veste o capacete</span></div>
+
+      <h1 class="hero__titulo">
+        <span>Ayrton Senna</span>
+        <span>Piloto de Fórmula 1 · 1984 — 1994</span>
+      </h1>
+
+      <!-- Card da última corrida: com o mouse parado em cima, a cortina desce
+           e revela o capacete inteiro (ver corrida.js) -->
+      <aside class="corrida" aria-label="Última corrida: GP de San Marino, Ímola, 1º de maio de 1994. Três vezes campeão mundial.">
+        <svg class="corrida__moldura" viewBox="0 0 132 262" aria-hidden="true">
+          <path d="M0.75,10 Q0.75,0.75 10,0.75 H74 Q80,0.75 84,6 L89,13 Q93,18.75 99,18.75 H122 Q131.25,18.75 131.25,28 V252 Q131.25,261.25 122,261.25 H10 Q0.75,261.25 0.75,252 Z" />
+        </svg>
+        <span class="corrida__aba">Última corrida</span>
+        <canvas class="corrida__pista" aria-hidden="true"></canvas>
+        <p class="corrida__gp">San Marino GP</p>
+        <p class="corrida__data">Ímola · 01.05.1994</p>
+        <span class="corrida__linha" aria-hidden="true"></span>
+        <svg class="corrida__icone" viewBox="0 0 120 70" aria-hidden="true">
+          <g class="louro">
+            <path class="talo" d="M36,64 C24,54 18,36 30,8" />
+            <ellipse cx="30" cy="57" rx="3" ry="7" transform="rotate(-35 30 57)" />
+            <ellipse cx="24" cy="48" rx="3" ry="7" transform="rotate(-15 24 48)" />
+            <ellipse cx="21" cy="38" rx="3" ry="7" transform="rotate(5 21 38)" />
+            <ellipse cx="22" cy="28" rx="3" ry="7" transform="rotate(22 22 28)" />
+            <ellipse cx="25" cy="19" rx="3" ry="6.5" transform="rotate(38 25 19)" />
+            <ellipse cx="30" cy="11" rx="2.6" ry="5.5" transform="rotate(52 30 11)" />
+          </g>
+          <g class="louro" transform="translate(120 0) scale(-1 1)">
+            <path class="talo" d="M36,64 C24,54 18,36 30,8" />
+            <ellipse cx="30" cy="57" rx="3" ry="7" transform="rotate(-35 30 57)" />
+            <ellipse cx="24" cy="48" rx="3" ry="7" transform="rotate(-15 24 48)" />
+            <ellipse cx="21" cy="38" rx="3" ry="7" transform="rotate(5 21 38)" />
+            <ellipse cx="22" cy="28" rx="3" ry="7" transform="rotate(22 22 28)" />
+            <ellipse cx="25" cy="19" rx="3" ry="6.5" transform="rotate(38 25 19)" />
+            <ellipse cx="30" cy="11" rx="2.6" ry="5.5" transform="rotate(52 30 11)" />
+          </g>
+          <g class="capacete-icone">
+            <path class="casco" d="M40,42 C40,22 48,12 60,12 C72,12 80,22 80,42 L80,50 C80,56 76,60 70,60 L50,60 C44,60 40,56 40,50 Z" />
+            <path class="faixa" d="M41,30 C48,27 72,27 79,30" />
+            <rect class="visor" x="44.5" y="33" width="31" height="12" rx="5" />
+            <path class="faixa" d="M43,51 C50,53 70,53 77,51" />
+          </g>
+        </svg>
+        <p class="corrida__titulo">3× Campeão<br />Mundial</p>
+        <p class="corrida__anos">1988 · 1990 · 1991</p>
+        <span class="corrida__carga" aria-hidden="true"><i></i></span>
+      </aside>
+
+      <p class="hero__dica"><span class="hero__dica-ponto"></span><span class="hero__dica-mouse">Passe o mouse no rosto</span><span class="hero__dica-toque">Toque no rosto</span></p>
+    </section>
+  </main>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>

@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Teste do modelo</title>
+  <style>
+    html, body { margin: 0; height: 100%; background: #f2efe3; font-family: system-ui, sans-serif; color: #0f2a1d; }
+    canvas { display: block; width: 100%; height: 100%; }
+    p { position: fixed; left: 16px; bottom: 12px; margin: 0; font-size: 12px; opacity: .7; }
+  </style>
+</head>
+<body>
+  <canvas></canvas>
+  <p>Arraste para girar · capacete por Chiavatta (MakerWorld), CC BY-NC · ?grade mostra a grade de medida</p>
+  <script type="module">
+    import * as THREE from 'three';
+    import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+    import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+    import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
+    import { desenharGrade, pintarModelo, texturaDe, materialModelo, prepararMalha } from '/src/pintura-modelo.js';
+
+    const canvas = document.querySelector('canvas');
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+    renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+    renderer.toneMapping = THREE.NeutralToneMapping;
+    const cena = new THREE.Scene();
+    cena.environment = new THREE.PMREMGenerator(renderer).fromScene(new RoomEnvironment(), 0.04).texture;
+    const luz = new THREE.DirectionalLight('#fff7e0', 1.2); luz.position.set(-1, 2, 2); cena.add(luz);
+    const cam = new THREE.PerspectiveCamera(30, 1, 1, 500);
+    cam.position.set(30, 10, 50);
+    const ctrl = new OrbitControls(cam, canvas);
+    ctrl.enableDamping = true;
+    ctrl.autoRotate = true;
+    ctrl.autoRotateSpeed = 1.2;
+
+    const c = document.createElement('canvas'); c.width = 2048; c.height = 1024;
+    const g = c.getContext('2d');
+    const grade = new URLSearchParams(location.search).has('grade');
+    (grade ? desenharGrade : pintarModelo)(c, g);
+    const tex = texturaDe(c);
+
+    const pbr = new URLSearchParams(location.search).has('pbr');
+    if (pbr) {
+      // modelo com material próprio (cor, normal, brilho): mostra como veio
+      new GLTFLoader().setMeshoptDecoder(MeshoptDecoder).load('/modelos/capacete-pbr.glb', (gltf) => {
+        const caixa = new THREE.Box3().setFromObject(gltf.scene);
+        const tam = caixa.getSize(new THREE.Vector3()), centro = caixa.getCenter(new THREE.Vector3());
+        gltf.scene.position.sub(centro);
+        const grupo = new THREE.Group();
+        grupo.add(gltf.scene);
+        grupo.scale.setScalar(20.5 / tam.y); // mesmo tamanho do outro modelo
+        cena.add(grupo);
+        window.__modelo = grupo;
+        window.__info = { tam: tam.toArray(), centro: centro.toArray() };
+      });
+    } else
+    new GLTFLoader().setMeshoptDecoder(MeshoptDecoder).load('/modelos/capacete.glb', (gltf) => {
+      let malha;
+      gltf.scene.traverse((o) => { if (o.isMesh) malha = o; });
+      prepararMalha(malha);
+      malha.material = materialModelo(tex);
+      cena.add(malha);
+      window.__modelo = malha;
+      window.__caixa = malha.geometry.boundingBox;
+    });
+
+    const ajustar = () => {
+      renderer.setSize(innerWidth, innerHeight, false);
+      cam.aspect = innerWidth / innerHeight;
+      cam.updateProjectionMatrix();
+    };
+    ajustar();
+    addEventListener('resize', ajustar);
+    renderer.setAnimationLoop(() => { ctrl.update(); renderer.render(cena, cam); });
+    // vista fixa: ângulo em graus (0 = frente), altura da câmera
+    window.__vista = (graus, alt = 0) => {
+      ctrl.autoRotate = false; ctrl.enableDamping = false;
+      const a = graus * Math.PI / 180, r = 62;
+      cam.position.set(Math.sin(a) * r, alt, Math.cos(a) * r);
+      cam.lookAt(0, 0, 0); ctrl.update(); renderer.render(cena, cam);
+    };
+    window.__repintar = (M) => { pintarModelo(c, g, M); tex.needsUpdate = true; };
+  </script>
+</body>
+</html>
