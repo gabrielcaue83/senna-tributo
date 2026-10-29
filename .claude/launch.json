@@ -6,6 +6,13 @@
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev"],
       "port": 5177
+    },
+    {
+      "name": "senna-build",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "preview"],
+      "port": 5178,
+      "url": "http://localhost:5178"
     }
   ]
 }

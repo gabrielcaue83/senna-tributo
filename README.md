@@ -3,6 +3,10 @@
 Site-homenagem de fã ao Ayrton Senna, inspirado na experiência do landonorris.com.
 Projeto **não oficial**, sem fins comerciais e sem ligação com a família Senna, o Instituto Ayrton Senna ou qualquer marca.
 
+**Ver no ar:** https://gabrielcaue83.github.io/senna-tributo/
+
+A cada envio para a branch `main`, o GitHub Actions gera o build e publica no GitHub Pages (`.github/workflows/deploy.yml`).
+
 ## Rodar
 
 ```bash

@@ -32,10 +32,12 @@ const REDUZIR = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 // giram juntos. "y"/"x" = giro máximo do capacete (radianos); "foto" = quanto
 // a parte mais próxima da foto (o nariz) se desloca, em fração da largura.
 const GIRO = { y: 0.045, x: 0.025, foto: 0.016 };
-const URL_FOTO = '/fotos/senna-hero.webp';
-const URL_PROFUNDIDADE = '/fotos/senna-profundidade.png?v=2';
-const URL_MODELO = '/modelos/capacete-pbr.glb?v=pintura-limpa-1'; // mude o v= ao trocar o arquivo (evita cache)
-const URL_FIO = '/modelos/capacete-fio.glb';
+// BASE = "/" no computador e "/senna-tributo/" no GitHub Pages (ver vite.config.js)
+const BASE = import.meta.env.BASE_URL;
+const URL_FOTO = `${BASE}fotos/senna-hero.webp`;
+const URL_PROFUNDIDADE = `${BASE}fotos/senna-profundidade.png?v=2`;
+const URL_MODELO = `${BASE}modelos/capacete-pbr.glb?v=pintura-limpa-1`; // mude o v= ao trocar o arquivo (evita cache)
+const URL_FIO = `${BASE}modelos/capacete-fio.glb`;
 
 // O GLB comprimido guarda posições numa escala própria (desfeita pelo nó).
 // Aqui isso vira Float32 nas unidades do modelo, para dar para deformar.
