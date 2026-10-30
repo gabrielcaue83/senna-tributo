@@ -9,8 +9,10 @@ import sharp from 'sharp';
 const [entrada, saida] = process.argv.slice(2);
 
 // Medidas em pixels da foto original (2000 × 1600)
-const CABECA = { x: 1012, y: 770, rx: 335, ry: 430 };
-const NARIZ = { x: 1010, y: 900, raio: 70, altura: 0.12 };
+// (foto do agasalho, encaixada por tools/montar-foto.mjs; a da jaqueta antiga
+// usava cabeça { x: 1012, y: 770, rx: 335, ry: 430 } e nariz { x: 1010, y: 900 })
+const CABECA = { x: 1010, y: 837, rx: 350, ry: 443 };
+const NARIZ = { x: 1012, y: 966, raio: 77, altura: 0.12 };
 const ESCALA = 0.25; // o mapa sai em 500 × 400 (suave, não precisa de detalhe)
 
 const meta = await sharp(entrada).metadata();

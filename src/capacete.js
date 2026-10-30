@@ -1,32 +1,47 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
-import { RASTRO, GLSL_RASTRO } from './rastro.js';
+import { GLSL_TRILHA } from './rastro.js';
+import { GLSL_CORTINA } from './cortina.js';
 
-// Capacete 3D do hero: modelo com textura própria (cor, relevo fino e brilho),
-// otimizado para a web em public/modelos/capacete-pbr.glb.
-// O wireframe usa uma versão bem simplificada da mesma malha (capacete-fio.glb).
+// Capacete do hero = uma FOTO do Senna de capacete (como no site do Lando):
+// duas fotos na mesma moldura, a de baixo sem capacete e a de cima só com o
+// capacete recortado (tools/montar-capacete.mjs). O rastro do mouse, a gota e
+// a cortina revelam a de cima. As duas giram em 3D com o mouse (cada uma com
+// seu mapa de profundidade) e o capacete ganha um brilho que segue o mouse.
+// Por cima vai o wireframe, um capacete 3D simplificado (capacete-fio.glb).
 //
 // Tudo é medido em pixels da foto original (2000 × 1600). A câmera
-// ortográfica usa essas mesmas unidades, então o capacete fica sempre em
-// cima da cabeça, qualquer que seja o tamanho da tela.
+// ortográfica usa essas mesmas unidades, então tudo fica sempre no lugar,
+// qualquer que seja o tamanho da tela.
 const FOTO = { w: 2000, h: 1600 };
-// Centro do capacete na foto, escala (px da foto por unidade do modelo)
-// "largura" aperta só na horizontal; giro vira a frente para a câmera.
-const CAP = { x: 1012, y: 790, escala: 645, largura: 0.93, giroY: 0 };
-// Queixo: a partir de "inicio" (fração da altura, de baixo para cima):
-// "aperto" afina um pouco a parte de baixo inteira; "bico" afunila só o que
-// projeta para a frente (quanto mais à frente, mais estreito) e "avanco"
-// empurra a ponta do queixo um pouco para a frente, deixando-o pontudo.
-const QUEIXO = { inicio: 0.45, aperto: 0.05, bico: 0.3, avanco: 0.06 };
+// Wireframe: malha montada a partir da própria foto do capacete
+// (tools/malha-do-capacete.mjs, que imprime estes números): centro na foto,
+// escala (px da foto por unidade do modelo), "largura" aperta só na
+// horizontal; giro vira a frente para a câmera.
+const CAP = { x: 1009, y: 846, escala: 742.1, largura: 1, giroY: 0 };
+// Polígonos por cima do capacete revelado: ficam claros (para aparecer até
+// no visor escuro). "forca" = quanto eles aparecem ali (1 = igual ao resto).
+const FIO_NO_CAPACETE = { cor: '#f2efe3', forca: 0.7 };
+// Volume dos polígonos (WebGL): as linhas de frente para a câmera ficam fracas
+// ("centro") e as das curvas/bordas ficam fortes, como num raio X do casco.
+// "sombra" = quanto o lado oposto ao mouse escurece (luz vinda do mouse).
+const FIO_3D = { centro: 0.3, sombra: 0.5 };
+// Brilho do verniz na foto do capacete: "forca" = intensidade com o mouse no
+// hero, "dureza" = quão pequeno e concentrado é o reflexo, "altura" = quão
+// acima da foto fica a luz (maior = reflexo mais perto do meio do capacete).
+const BRILHO = { forca: 0.55, dureza: 70, altura: 0.55 };
+// Forma do capacete da foto (elipsoide, em px da foto), a mesma usada no mapa
+// de profundidade (tools/montar-capacete.mjs imprime esses números). Daqui sai
+// a curvatura lisa do verniz para o brilho (o mapa em PNG faria degraus).
+const ELIPSE = { x: 1008, y: 814, rx: 469, ry: 603, z: 391 };
 // Pulso do wireframe: a cada "periodo" segundos uma linha discreta desce de
 // "topo" até "base" (alturas do modelo: 0 = base, 1,45 = topo) e os polígonos
 // vão aparecendo junto com ela, de leve. Com o capacete todo desenhado, ele
 // some inteiro antes do próximo ciclo.
 // "descida" = fração do ciclo que a linha leva descendo; "some" = fração final
 // em que tudo se apaga. "forca" = quanto os polígonos aparecem; "linha" = brilho.
-export const PULSO = { periodo: 0.8, topo: 1.6, base: -0.15, descida: 0.6, some: 0.25, forca: 0.55, linha: 0.6 };
+export const PULSO = { periodo: 1.6, topo: 1.6, base: -0.15, descida: 0.6, some: 0.25, forca: 0.55, linha: 0.6 };
 const REDUZIR = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 // Giro 3D com o mouse: a cabeça (foto com mapa de profundidade) e o capacete
 // giram juntos. "y"/"x" = giro máximo do capacete (radianos); "foto" = quanto
@@ -34,10 +49,12 @@ const REDUZIR = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 const GIRO = { y: 0.045, x: 0.025, foto: 0.016 };
 // BASE = "/" no computador e "/senna-tributo/" no GitHub Pages (ver vite.config.js)
 const BASE = import.meta.env.BASE_URL;
-const URL_FOTO = `${BASE}fotos/senna-hero.webp`;
-const URL_PROFUNDIDADE = `${BASE}fotos/senna-profundidade.png?v=2`;
-const URL_MODELO = `${BASE}modelos/capacete-pbr.glb?v=pintura-limpa-1`; // mude o v= ao trocar o arquivo (evita cache)
-const URL_FIO = `${BASE}modelos/capacete-fio.glb`;
+// mude o v= ao trocar o arquivo (evita cache)
+const URL_FOTO = `${BASE}fotos/senna-hero.webp?v=nitida`;
+const URL_PROFUNDIDADE = `${BASE}fotos/senna-profundidade.png?v=nitida`;
+const URL_CAPACETE = `${BASE}fotos/senna-capacete.webp?v=centralizado`;
+const URL_PROF_CAPACETE = `${BASE}fotos/senna-capacete-profundidade.png?v=centralizado`;
+const URL_FIO = `${BASE}modelos/capacete-foto-fio.glb?v=centralizado`;
 
 // O GLB comprimido guarda posições numa escala própria (desfeita pelo nó).
 // Aqui isso vira Float32 nas unidades do modelo, para dar para deformar.
@@ -67,41 +84,6 @@ function assar(mesh) {
   mesh.updateMatrix();
 }
 
-// Afina o queixo: a parte de baixo estreita um pouco e, principalmente, a
-// ponta da frente afunila e avança, como o "bico" de um capacete de F1.
-function afinarQueixo(g, yMin, yMax, zMax) {
-  const p = g.attributes.position;
-  const yIni = yMin + (yMax - yMin) * QUEIXO.inicio;
-  const suave = (t) => { t = Math.min(1, Math.max(0, t)); return t * t * (3 - 2 * t); };
-  for (let i = 0; i < p.count; i++) {
-    const y = p.getY(i);
-    if (y >= yIni) continue;
-    const ty = suave((yIni - y) / (yIni - yMin)); // 0 no início do queixo, 1 na base
-    const z = p.getZ(i);
-    const tz = suave(z / zMax);                    // 0 no meio, 1 na ponta da frente
-    p.setX(i, p.getX(i) * (1 - QUEIXO.aperto * ty - QUEIXO.bico * ty * tz));
-    if (z > 0) p.setZ(i, z + zMax * QUEIXO.avanco * ty * tz);
-  }
-  p.needsUpdate = true;
-  g.computeBoundingBox();
-  g.computeBoundingSphere();
-}
-
-// Pintura de verdade: a textura já vem limpa (cores sólidas, feita por
-// tools/limpar-textura.mjs), sem metal e com verniz brilhante por cima.
-// O brilho e os reflexos são todos calculados na hora pela luz da cena.
-function materialPintura(orig) {
-  const m = new THREE.MeshPhysicalMaterial({
-    map: orig.map,
-    roughness: 0.3,
-    metalness: 0,
-    clearcoat: 1,
-    clearcoatRoughness: 0.04,
-    envMapIntensity: 0.6,
-  });
-  return m;
-}
-
 export function criarCapacete({ canvas, area }) {
   const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
   // até 1,5x: a foto agora pode ficar maior que a tela e o canvas ficaria pesado
@@ -110,28 +92,8 @@ export function criarCapacete({ canvas, area }) {
   renderer.toneMapping = THREE.NeutralToneMapping;
 
   const cena = new THREE.Scene();
-  const pmrem = new THREE.PMREMGenerator(renderer);
-  cena.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
-
   const cam = new THREE.OrthographicCamera(0, FOTO.w, 0, -FOTO.h, -4000, 4000);
   cam.position.z = 2000;
-
-  // Luz de estúdio: principal quente, preenchimento suave e duas luzes por
-  // trás que desenham um contorno claro nas bordas do capacete.
-  const principal = new THREE.DirectionalLight('#fff4dc', 1.1);
-  principal.position.set(-0.7, 1, 1.1);
-  const preench = new THREE.DirectionalLight('#dfe9ff', 0.35);
-  preench.position.set(1, -0.2, 0.8);
-  const contornoE = new THREE.DirectionalLight('#cfe6ff', 2.4);
-  contornoE.position.set(-1.3, 0.5, -0.9);
-  const contornoD = new THREE.DirectionalLight('#fff1c4', 2.0);
-  contornoD.position.set(1.3, 0.35, -0.9);
-  cena.add(principal, preench, contornoE, contornoD);
-
-  // Brilho que acompanha o mouse (e varre o capacete na entrada)
-  const brilho = new THREE.PointLight('#fffaf0', 0, 0, 0);
-  brilho.position.set(1000, -700, 650);
-  cena.add(brilho);
 
   // Uniforms compartilhados, em pixels do canvas (origem embaixo, como
   // gl_FragCoord): o rastro do mouse (computador) e o círculo do toque (celular).
@@ -139,89 +101,112 @@ export function criarCapacete({ canvas, area }) {
     uMouse: { value: new THREE.Vector2(-9999, -9999) },
     uRaio: { value: 0 },
     uTempo: { value: 0 },
-    uRastro: { value: Array.from({ length: RASTRO.capacidade }, () => new THREE.Vector4()) },
-    uRastroN: { value: 0 },
-    uRastroR: { value: RASTRO.raio },
-    uRastroT: { value: 0 },
+    uTrilha: { value: null }, // tinta do rastro de água (rastro.js)
+    uTrilhaT: { value: 0 },
     uCortina: { value: 0 },  // 0 = normal; 1 = cortina desceu e revelou o capacete inteiro
     uAltPx: { value: 1 },    // altura do canvas em pixels
     uTela: { value: new THREE.Vector4(0, 0, 1, 1) }, // canvas na tela: esquerda, topo (px CSS), dpr, altura da janela
+    uLargTela: { value: 1 },   // largura da janela (px CSS)
+    uBarriga: { value: 0.06 }, // barriga da cortina (ver cortina.js)
   };
   const GLSL_REVELA = /* glsl */ `
 uniform vec2 uMouse;
-uniform float uRaio, uTempo, uCortina, uAltPx;
+uniform float uRaio, uTempo, uCortina, uAltPx, uLargTela;
 uniform vec4 uTela;
-${GLSL_RASTRO}
+${GLSL_TRILHA}
+${GLSL_CORTINA}
+// este pixel em px da tela (as formas da cortina e da água são medidas na tela,
+// igual ao fundo em topo.js, para as bordas baterem)
+vec2 telaCss() { return vec2(uTela.x + gl_FragCoord.x / uTela.z, uTela.y + (uAltPx - gl_FragCoord.y) / uTela.z); }
 float revelado() {
-  // cortina descendo do topo da tela (hover no card da corrida). A conta é
-  // feita em px da tela, igual à do fundo (topo.js), para as bordas baterem.
+  // cortina descendo do topo da tela (hover no card da corrida), numa barriga só
   if (uCortina > 0.0) {
-    float tx = uTela.x + gl_FragCoord.x / uTela.z;
-    float ty = uTela.y + (uAltPx - gl_FragCoord.y) / uTela.z;
-    float onda = (sin(tx * 0.011 + uTempo * 2.4) + 0.5 * sin(tx * 0.027 - uTempo * 3.1)) * 0.025;
-    if (ty / uTela.w < uCortina * 1.15 + onda) return 1.0;
+    vec2 tl = telaCss();
+    if (tl.y / uTela.w < bordaCortina(tl.x / uLargTela, uCortina)) return 1.0;
   }
   if (distance(gl_FragCoord.xy, uMouse) < uRaio) return 1.0; // toque no celular
-  return step(0.5, mascaraRastro(gl_FragCoord.xy));          // rastro do mouse
+  // rastro de água do mouse e das gotas fantasmas (rastro.js)
+  return step(0.5, trilha(telaCss(), vec2(uLargTela, uTela.w)));
 }`;
-  // Recorta um material pela revelação: "dentro" mostra só onde revelou
-  // (o capacete pintado); "fora" esconde onde revelou (o wireframe).
-  const lente = (mat, modo) => {
-    const antes = mat.onBeforeCompile;
-    mat.onBeforeCompile = (sh, r) => {
-      antes?.(sh, r);
-      Object.assign(sh.uniforms, U);
-      const teste = modo === 'dentro' ? 'if (revelado() < 0.5) discard;' : 'if (revelado() > 0.5) discard;';
-      sh.fragmentShader = GLSL_REVELA + '\n' +
-        sh.fragmentShader.replace('void main() {', `void main() {\n  ${teste}\n`);
-    };
-    mat.needsUpdate = true;
-    return mat;
-  };
 
   // ---------- Foto do Senna em 3D ----------
   // A foto é desenhada aqui (e não mais só pelo <img>) para poder "girar":
   // cada pixel se desloca conforme a profundidade dele (nariz mais, ombros
   // menos), o que dá a impressão de a cabeça virar um pouquinho.
+  // O mesmo vale para a foto do capacete, que fica por cima e só aparece onde
+  // foi revelada.
   const uFoto = {
     uFoto: { value: null }, uProf: { value: null },
+    uCap: { value: null }, uProfCap: { value: null },
     uGiro: { value: new THREE.Vector2() }, uForca: { value: GIRO.foto },
+    uLuz: { value: new THREE.Vector2(-9999, -9999) }, // posição da luz do brilho (px do canvas)
+    uBrilho: { value: 0 }, uDureza: { value: BRILHO.dureza }, uLuzAlt: { value: BRILHO.altura },
+    uElipse: { value: new THREE.Vector4(ELIPSE.x, ELIPSE.y, ELIPSE.rx, ELIPSE.ry) }, uElipseZ: { value: ELIPSE.z },
+    uVer: { value: 0 }, // 1 = mostra o capacete inteiro (para conferir o encaixe)
   };
   let fotoPronta = false, imgEscondida = false;
-  // avisa quando o capacete 3D e a foto 3D estão prontos (o preloader espera isso)
+  // avisa quando as fotos e o wireframe estão prontos (o preloader espera isso)
   let avisarCarregado;
   const carregado = new Promise((ok) => { avisarCarregado = ok; });
   const conferirCarregado = () => { if (fotoPronta && pronto) avisarCarregado(); };
   const carregarTextura = (url) => new Promise((ok) => new THREE.TextureLoader().load(url, ok));
-  Promise.all([carregarTextura(URL_FOTO), carregarTextura(URL_PROFUNDIDADE)]).then(([foto, prof]) => {
-    foto.colorSpace = THREE.NoColorSpace; // passa a cor da foto como está
-    foto.anisotropy = 4;
+  Promise.all([URL_FOTO, URL_PROFUNDIDADE, URL_CAPACETE, URL_PROF_CAPACETE].map(carregarTextura)).then(([foto, prof, cap, profCap]) => {
+    for (const t of [foto, cap]) {
+      t.colorSpace = THREE.NoColorSpace; // passa a cor da foto como está
+      t.anisotropy = 4;
+    }
     uFoto.uFoto.value = foto;
     uFoto.uProf.value = prof;
+    uFoto.uCap.value = cap;
+    uFoto.uProfCap.value = profCap;
     fotoPronta = true;
     conferirCarregado();
   });
   const planoFoto = new THREE.Mesh(
     new THREE.PlaneGeometry(FOTO.w, FOTO.h),
     new THREE.ShaderMaterial({
-      uniforms: uFoto,
+      uniforms: { ...uFoto, ...U },
       transparent: true, premultipliedAlpha: true, depthTest: false, depthWrite: false,
       vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
-      fragmentShader: `
-        uniform sampler2D uFoto, uProf;
-        uniform vec2 uGiro;
-        uniform float uForca;
+      fragmentShader: GLSL_REVELA + `
+        uniform sampler2D uFoto, uProf, uCap, uProfCap;
+        uniform vec2 uGiro, uLuz;
+        uniform float uForca, uBrilho, uDureza, uLuzAlt, uVer, uElipseZ;
+        uniform vec4 uElipse;
         varying vec2 vUv;
-        vec2 deslocar(vec2 uv) {
-          float d = texture2D(uProf, uv).r;
-          return uGiro * (d - 0.45) * uForca;
-        }
+        vec2 deslocarRosto(vec2 uv) { return uGiro * (texture2D(uProf, uv).r - 0.45) * uForca; }
+        vec2 deslocarCap(vec2 uv) { return uGiro * (texture2D(uProfCap, uv).r - 0.45) * uForca; }
         void main() {
           // duas passadas para achar de onde veio cada pixel depois de "girar"
-          vec2 uv = vUv - deslocar(vUv);
-          uv = vUv - deslocar(uv);
+          vec2 uv = vUv - deslocarRosto(vUv);
+          uv = vUv - deslocarRosto(uv);
           vec4 c = texture2D(uFoto, uv);
-          gl_FragColor = vec4(c.rgb * c.a, c.a);
+          vec3 cor = c.rgb * c.a; // pré-multiplicado
+          float a = c.a;
+
+          float rev = max(revelado(), uVer);
+          if (rev > 0.0) {
+            vec2 uc = vUv - deslocarCap(vUv);
+            uc = vUv - deslocarCap(uc);
+            vec4 k = texture2D(uCap, uc);
+            if (k.a > 0.0) {
+              // brilho do verniz: a curvatura vem da forma do capacete
+              // (elipsoide); a luz fica um pouco acima do ponto do mouse
+              vec2 q = vec2(uc.x * 2000.0 - uElipse.x, uElipse.y - (1.0 - uc.y) * 1600.0); // y para cima
+              vec2 e = q / uElipse.zw;
+              float z = sqrt(max(0.0, 1.0 - dot(e, e))) * uElipseZ;
+              vec3 n = normalize(vec3(q / (uElipse.zw * uElipse.zw), z / (uElipseZ * uElipseZ)));
+              vec3 L = normalize(vec3((uLuz - gl_FragCoord.xy) / uAltPx, uLuzAlt));
+              vec3 h = normalize(L + vec3(0.0, 0.0, 1.0));
+              float nh = max(dot(n, h), 0.0);
+              float brilho = (pow(nh, uDureza) + 0.12 * pow(nh, 6.0)) * uBrilho;
+              vec3 kc = min(k.rgb + vec3(1.0, 0.98, 0.93) * brilho, 1.0);
+              float ka = k.a * rev;
+              cor = kc * ka + cor * (1.0 - ka);
+              a = ka + a * (1.0 - ka);
+            }
+          }
+          gl_FragColor = vec4(cor, a);
         }`,
     }),
   );
@@ -250,40 +235,51 @@ float revelado() {
   };
   // depthTest ligado: as linhas da parte de trás ficam escondidas pela
   // máscara de profundidade (ver "mascara" no carregamento)
-  const fioBase = new THREE.LineBasicMaterial({ color: '#0f2a1d', transparent: true, opacity: 0, depthTest: true, depthWrite: false });
-  fioBase.onBeforeCompile = (sh) => {
-    Object.assign(sh.uniforms, uPulso);
-    sh.vertexShader = 'varying float vAltura;\n' +
-      sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n  vAltura = position.y;');
-    sh.fragmentShader = 'uniform float uOnda, uGeral, uForca, uLinha;\nvarying float vAltura;\n' +
+  // Por cima do capacete revelado (rastro, gota, cortina) os polígonos
+  // continuam, mas claros (FIO_NO_CAPACETE).
+  const uNoCap = {
+    uCorNoCap: { value: new THREE.Color(FIO_NO_CAPACETE.cor) },
+    uForcaNoCap: { value: FIO_NO_CAPACETE.forca },
+    uCentro: { value: FIO_3D.centro }, uSombra: { value: FIO_3D.sombra },
+    uLuzDir: { value: new THREE.Vector3(-0.4, 0.5, 0.75).normalize() }, // de onde vem a luz (segue o mouse)
+  };
+  const fioMat = new THREE.LineBasicMaterial({ color: '#0f2a1d', transparent: true, opacity: 0, depthTest: true, depthWrite: false });
+  fioMat.onBeforeCompile = (sh) => {
+    Object.assign(sh.uniforms, uPulso, U, uNoCap);
+    sh.vertexShader = 'attribute float destaque;\nvarying float vAltura, vDestaque;\nvarying vec3 vNormalV;\n' +
+      sh.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>
+  vAltura = position.y;
+  vDestaque = destaque; // 1 na moldura do visor
+  vNormalV = normalize(normalMatrix * normal); // para onde aquele ponto do casco olha`);
+    sh.fragmentShader = GLSL_REVELA +
+      '\nuniform float uOnda, uGeral, uForca, uLinha, uForcaNoCap, uCentro, uSombra;\nuniform vec3 uCorNoCap, uLuzDir;\nvarying float vAltura, vDestaque;\nvarying vec3 vNormalV;\n' +
       sh.fragmentShader.replace('#include <opaque_fragment>', `
   float linhaP = exp(-pow((vAltura - uOnda) / 0.03, 2.0)); // linha fina do pulso
-  float revelado = smoothstep(uOnda - 0.015, uOnda + 0.015, vAltura); // acima da linha: já apareceu
-  diffuseColor.a = min(1.0, diffuseColor.a * (uForca * revelado * uGeral + uLinha * linhaP * uGeral));
+  float jaPassou = smoothstep(uOnda - 0.015, uOnda + 0.015, vAltura); // acima da linha: já apareceu
+  diffuseColor.a = min(1.0, diffuseColor.a * (uForca * jaPassou * uGeral + uLinha * linhaP * uGeral));
+  // volume: fraco onde o casco olha para a câmera, forte nas curvas e bordas
+  vec3 nv = normalize(vNormalV);
+  float curva = pow(1.0 - clamp(nv.z, 0.0, 1.0), 1.3);
+  float luz = max(dot(nv, uLuzDir), 0.0);
+  diffuseColor.a *= mix(uCentro, 1.0, max(curva, vDestaque)) * mix(1.0 + uSombra * 0.4, 1.0 - uSombra, luz);
+  float noCap = revelado(); // em cima do capacete revelado: linhas claras
+  diffuseColor.rgb = mix(diffuseColor.rgb, uCorNoCap, noCap);
+  diffuseColor.a *= mix(1.0, uForcaNoCap, noCap);
   #include <opaque_fragment>`);
   };
-  const fioMat = lente(fioBase, 'fora');
 
   let pronto = false;
   const loader = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder);
-  Promise.all([loader.loadAsync(URL_MODELO), loader.loadAsync(URL_FIO)]).then(([gModelo, gFio]) => {
-    const malhas = [];
-    gModelo.scene.traverse((o) => { if (o.isMesh) malhas.push(o); });
+  loader.loadAsync(URL_FIO).then((gFio) => {
     const fios = [];
     gFio.scene.traverse((o) => { if (o.isMesh) fios.push(o); });
-    [...malhas, ...fios].forEach(assar);
+    fios.forEach(assar);
 
-    // caixa e centro do modelo (os dois arquivos têm as mesmas coordenadas)
+    // caixa e centro do modelo
     const caixa = new THREE.Box3();
-    malhas.forEach((m) => { m.geometry.computeBoundingBox(); caixa.union(m.geometry.boundingBox); });
+    fios.forEach((m) => { m.geometry.computeBoundingBox(); caixa.union(m.geometry.boundingBox); });
     const centro = caixa.getCenter(new THREE.Vector3());
-    [...malhas, ...fios].forEach((m) => afinarQueixo(m.geometry, caixa.min.y, caixa.max.y, caixa.max.z - centro.z));
 
-    malhas.forEach((o) => {
-      o.material = lente(materialPintura(o.material), 'dentro');
-      o.position.copy(centro).negate();
-      giro.add(o);
-    });
     // Máscara de profundidade: o próprio capacete simples, desenhado sem cor
     // antes das linhas. Ele só "avisa" a placa de vídeo do que está na frente,
     // então as linhas da nuca e da borda de trás somem atrás da casca.
@@ -299,7 +295,24 @@ float revelado() {
       mascara.position.copy(centro).negate();
       giro.add(mascara);
 
-      const linhas = new THREE.LineSegments(new THREE.WireframeGeometry(o.geometry), fioMat);
+      // linhas = arestas dos triângulos, levando a normal de cada ponto (para
+      // o shader saber a curvatura do casco ali)
+      const g = o.geometry;
+      g.computeVertexNormals();
+      const tri = g.index.array, vistas = new Set(), pares = [];
+      for (let i = 0; i < tri.length; i += 3) {
+        for (const [a, b] of [[tri[i], tri[i + 1]], [tri[i + 1], tri[i + 2]], [tri[i + 2], tri[i]]]) {
+          const k = a < b ? a * 1e6 + b : b * 1e6 + a;
+          if (!vistas.has(k)) { vistas.add(k); pares.push(a, b); }
+        }
+      }
+      const arestas = new THREE.BufferGeometry();
+      arestas.setAttribute('position', g.attributes.position);
+      arestas.setAttribute('normal', g.attributes.normal);
+      arestas.setAttribute('destaque', g.attributes._destaque
+        || new THREE.BufferAttribute(new Float32Array(g.attributes.position.count), 1));
+      arestas.setIndex(pares);
+      const linhas = new THREE.LineSegments(arestas, fioMat);
       linhas.renderOrder = 2;
       linhas.position.copy(centro).negate();
       giro.add(linhas);
@@ -384,7 +397,7 @@ float revelado() {
 
     estado.rotX += (estado.alvoRotX - estado.rotX) * 0.06;
     estado.rotY += (estado.alvoRotY - estado.rotY) * 0.06;
-    capacete.rotation.set(estado.rotX + 0.04, estado.rotY, 0);
+    capacete.rotation.set(estado.rotX, estado.rotY, 0);
     // a foto gira junto: mesmo ângulo, normalizado (-1 a 1)
     uFoto.uGiro.value.set(estado.rotY / GIRO.y, -estado.rotX / GIRO.x);
     fioMat.opacity = estado.fio;
@@ -398,30 +411,49 @@ float revelado() {
     const fim = (fase - (1 - PULSO.some)) / PULSO.some; // 0..1 no trecho final
     uPulso.uGeral.value = fim <= 0 ? 1 : 1 - fim * fim * (3 - 2 * fim);
     }
+    // capacete 100% à mostra (cortina no fim): para de piscar e os polígonos
+    // ficam parados por cima (a transição é suave no finzinho da cortina)
+    const c = U.uCortina.value;
+    const calmo = c <= 0.85 ? 0 : Math.min(1, (c - 0.85) / 0.15) ** 2 * (3 - 2 * Math.min(1, (c - 0.85) / 0.15));
+    if (calmo > 0) {
+      uPulso.uOnda.value += (PULSO.base - uPulso.uOnda.value) * calmo;
+      uPulso.uGeral.value += (1 - uPulso.uGeral.value) * calmo;
+    }
 
     U.uTempo.value = performance.now() / 1000;
+    U.uTrilhaT.value = U.uTempo.value;
+    if (U.uTrilha.value) U.uTrilha.value.needsUpdate = true; // tinta nova deste quadro
     U.uAltPx.value = estado.alturaCss * dpr;
     const rc = canvas.getBoundingClientRect();
     U.uTela.value.set(rc.left, rc.top, dpr, window.innerHeight);
+    U.uLargTela.value = window.innerWidth;
 
-    // brilho: segue a lente; quando o capacete aparece, varre o capacete
+    // luz dos polígonos: vem do lado onde está o mouse (o outro lado escurece)
+    if (U.uMouse.value.x > -1000) {
+      const k1 = estado.escala * dpr;
+      const dx = (U.uMouse.value.x - CAP.x * k1) / (500 * k1);
+      const dy = (U.uMouse.value.y - (FOTO.h - CAP.y) * k1) / (500 * k1);
+      uNoCap.uLuzDir.value.set(dx, dy, 0.9).normalize();
+    }
+
+    // brilho do verniz: segue o mouse; quando o mouse entra, varre o capacete
+    estado.brilho += (estado.brilhoAlvo - estado.brilho) * 0.08;
+    const brilhoMouse = (estado.brilho / 2.4) * BRILHO.forca;
     if (estado.varre >= 0 && estado.varre < 1) {
       // varredura: passa da esquerda para a direita e se junta ao brilho do mouse
-      brilho.position.set(560 + estado.varre * 960, -600, 650);
-      brilho.intensity = Math.sin(estado.varre * Math.PI) * 4 + estado.brilho * estado.varre;
+      const k2 = estado.escala * dpr;
+      uFoto.uLuz.value.set((560 + estado.varre * 880) * k2, (FOTO.h - 560) * k2);
+      uFoto.uBrilho.value = Math.sin(estado.varre * Math.PI) * BRILHO.forca * 1.3 + brilhoMouse * estado.varre;
     } else {
-      estado.brilho += (estado.brilhoAlvo - estado.brilho) * 0.08;
-      const fx = U.uMouse.value.x / dpr / estado.escala;
-      const fy = (estado.alturaCss - U.uMouse.value.y / dpr) / estado.escala;
-      brilho.position.set(fx, -fy, 650);
-      brilho.intensity = estado.brilho;
+      uFoto.uLuz.value.copy(U.uMouse.value);
+      uFoto.uBrilho.value = brilhoMouse;
     }
 
     renderer.autoClear = true;
     renderer.render(cenaFoto, cam);   // 1º a foto
     renderer.autoClear = false;
     renderer.clearDepth();
-    renderer.render(cena, cam);       // 2º o capacete e o wireframe por cima
+    renderer.render(cena, cam);       // 2º o wireframe por cima
     // com a foto 3D desenhada, o <img> original sai de cena (fica como reserva)
     if (fotoPronta && !imgEscondida) {
       const img = area.querySelector('img');
@@ -433,17 +465,15 @@ float revelado() {
   return {
     tick,
     mover,
-    // rastro em px da tela: [{ x, y, idade, liga }] -> uniforms em px do canvas
-    definirRastro(lista) {
-      const n = Math.min(lista.length, RASTRO.capacidade);
-      for (let i = 0; i < n; i++) {
-        const p = lista[lista.length - n + i];
-        const [u, w] = paraFoto(p.x, p.y);
-        U.uRastro.value[i].set(u * dpr, (area.offsetHeight - w) * dpr, p.idade, p.liga);
-      }
-      U.uRastroN.value = n;
-      U.uRastroR.value = RASTRO.raio * dpr;
-      U.uRastroT.value = performance.now() / 1000;
+    // tinta do rastro de água (canvas da simulação em rastro.js); é relida a
+    // cada quadro
+    usarTrilha(canvasTrilha) {
+      if (!canvasTrilha) return;
+      const t = new THREE.CanvasTexture(canvasTrilha);
+      t.colorSpace = THREE.NoColorSpace;
+      t.minFilter = t.magFilter = THREE.LinearFilter;
+      t.generateMipmaps = false;
+      U.uTrilha.value = t;
     },
     // brilho que segue o mouse (no computador não tem lente redonda)
     brilhar(ligado) { estado.brilhoAlvo = ligado ? 2.4 : 0; },
@@ -457,15 +487,16 @@ float revelado() {
     fechar() { estado.raioAlvo = 0; estado.brilhoAlvo = 0; },
     set varre(v) { estado.varre = v; },
     get varre() { return estado.varre; },
-    // mostra o capacete inteiro (útil para conferir a pintura)
+    // mostra o capacete inteiro (útil para conferir o encaixe)
     vestirTudo() { estado.alvoX = estado.alvoY = 0; U.uMouse.value.set(0, 0); estado.raioAlvo = estado.raio = 1e5; },
     get pronto() { return pronto; },
     // cortina que revela o capacete inteiro (0 a 1), animada pelo card da corrida
     set cortina(v) { U.uCortina.value = v; },
     get cortina() { return U.uCortina.value; },
-    carregado, // Promise: capacete e foto prontos
+    set barriga(v) { U.uBarriga.value = v; },
+    carregado, // Promise: fotos e wireframe prontos
     // para ajustar posição/escala/giro ao vivo pelo console (só para testes)
-    _ajuste: { capacete, giro, U },
+    _ajuste: { capacete, giro, U, uFoto },
     set fio(v) { estado.fio = v; },
     get fio() { return estado.fio; },
     set ativo(v) { estado.ativo = v; },

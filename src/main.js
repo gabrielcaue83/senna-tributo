@@ -3,11 +3,12 @@ import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import Lenis from 'lenis';
 import { criarCapacete } from './capacete.js';
-import { criarRastro, juntarRastros, RASTRO } from './rastro.js';
+import { criarTrilha, TRILHA } from './rastro.js';
 import { criarTopoVivo } from './topo.js';
 import { iniciarPreloader } from './preloader.js';
 import { criarLogoTopo } from './logo-topo.js';
 import { criarCorrida } from './corrida.js';
+import { bordaCortina, criarBarriga } from './cortina.js';
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -35,7 +36,9 @@ const cap = criarCapacete({ canvas: document.querySelector('.hero__gl'), area })
 // segundos (a barrinha amarela do card vai enchendo), uma cortina desce do
 // topo até a base da página invertendo as cores do fundo e revelando o
 // capacete inteiro. Mouse sai = a cortina sobe e tudo volta ao normal.
-const CORTINA = { espera: 2, desce: 1.6, sobe: 1 };
+// "acelera" = como ela desce: começa devagar e vai pegando impulso (o formato,
+// uma barriga só que afunda com a velocidade, fica em cortina.js).
+const CORTINA = { espera: 2, desce: 1.5, sobe: 1, acelera: 'power3.in' };
 const cargaCorrida = document.querySelector('.corrida__carga i');
 let esperaCortina = null;
 criarCorrida(document.querySelector('.corrida'), {
@@ -44,7 +47,7 @@ criarCorrida(document.querySelector('.corrida'), {
     esperaCortina?.kill();
     esperaCortina = gsap.fromTo(cargaCorrida, { scaleX: 0 }, {
       scaleX: 1, duration: CORTINA.espera, ease: 'none',
-      onComplete: () => gsap.to(cap, { cortina: 1, duration: CORTINA.desce, ease: 'power2.inOut', overwrite: true }),
+      onComplete: () => gsap.to(cap, { cortina: 1, duration: CORTINA.desce, ease: CORTINA.acelera, overwrite: true }),
     });
   },
   aoSair: () => {
@@ -59,24 +62,30 @@ criarCorrida(document.querySelector('.corrida'), {
 // mancha: 1 = as gotas invertem as cores do fundo por onde passam (0 desliga)
 const topo = criarTopoVivo(document.querySelector('.topo'), { forca: 0, base: 0.15, mancha: 1 });
 
-// Rastro do mouse (como no site do Lando): o cursor deixa um rastro macio
-// que some em ~1 s; no fundo vira uma mancha cinza e, onde cruza a cabeça,
-// o capacete aparece por dentro. Os valores ficam em rastro.js (RASTRO).
-const rastro = criarRastro();
-let mouse = null; // última posição do mouse dentro do hero (para o brilho)
+// Rastro de água (mouse e gotas fantasmas): uma pintura que escorre, numa
+// tela invisível que o capacete e o fundo leem (valores em rastro.js, TRILHA).
+// Onde tem "tinta", o capacete aparece e o fundo inverte as cores.
+const trilha = criarTrilha();
+cap.usarTrilha(trilha?.canvas);
+topo?.usarTrilha(trilha?.canvas);
+let mouse = null;       // última posição do mouse dentro do hero (para o brilho)
+let pincelMouse = null; // última posição do mouse na janela (pinta o rastro)
 if (temHover) {
   hero.addEventListener('pointerenter', (e) => { mouse = [e.clientX, e.clientY]; cap.mover(...mouse); cap.brilhar(true); });
   hero.addEventListener('pointermove', (e) => { mouse = [e.clientX, e.clientY]; });
   hero.addEventListener('pointerleave', () => { mouse = null; cap.brilhar(false); });
-  if (!reduzir) window.addEventListener('pointermove', (e) => rastro.adicionar(e.clientX, e.clientY));
+  if (!reduzir) window.addEventListener('pointermove', (e) => { pincelMouse = [e.clientX, e.clientY]; });
+  // mouse saiu da janela: levanta o pincel (senão ao voltar riscaria a tela)
+  window.addEventListener('pointerout', (e) => { if (!e.relatedTarget) pincelMouse = null; });
 } else {
-  // No toque: um toque veste o capacete inteiro, outro tira
+  // No toque: um toque desce a cortina e veste o capacete inteiro (a mesma do
+  // card da corrida); outro toque sobe a cortina
   let vestido = false;
-  hero.addEventListener('click', (e) => {
+  hero.addEventListener('click', () => {
     vestido = !vestido;
-    const r = area.getBoundingClientRect();
-    cap.mover(r.left + r.width * 0.506, r.top + r.height * 0.52);
-    vestido ? cap.abrir() : cap.fechar();
+    gsap.to(cap, vestido
+      ? { cortina: 1, duration: CORTINA.desce, ease: CORTINA.acelera, overwrite: true }
+      : { cortina: 0, duration: CORTINA.sobe, ease: 'power3.inOut', overwrite: true });
   });
 }
 
@@ -108,121 +117,111 @@ if (temHover && !reduzir) {
   });
 }
 
-// ---------- GOTA EM ZIGUE-ZAGUE ----------
-// Uma gota (cabeça redonda e cauda afinando) faz um zigue-zague de passadas
-// retas: cruza a tela numa altura, vira fora da tela e volta cruzando em outra
-// altura, no sentido contrário. Um zigue-zague DESCE (passada em cima, depois
-// embaixo); o próximo SOBE (embaixo, depois em cima), sempre alternando.
-// Usa o mesmo efeito do rastro do mouse: revela o capacete e inverte o fundo.
-// linhas = alturas das passadas, de cima para baixo (fração da altura da tela);
-// inclinacao = quanto cada passada desce de um lado ao outro (px);
-// pausa entre um zigue-zague e outro (s); velocidade (px/s); cauda (px);
-// tamanho = raio da cabeça (1 = raio do rastro do mouse).
+// ---------- RAJADAS DE ÁGUA EM ZIGUE-ZAGUE ----------
+// Ritmo medido no vídeo de referência que o usuário mandou: rajadas de 4
+// passadas horizontais que cruzam a tela inteira, uma em cada altura do rosto
+// (testa → olhos → boca → queixo). Cada passada nova sai ~0,43 s depois da
+// anterior, no sentido contrário (esquerda→direita, direita→esquerda...), então
+// elas se cruzam em cascata. Uma rajada DESCE, a seguinte SOBE, e assim vai.
+// Cada passada é um pincel que pinta no rastro de água (rastro.js): revela o
+// capacete e inverte o fundo.
+// alturas = px da foto do hero (testa, olhos, boca, queixo); intervalo = s
+// entre o início de uma passada e o da próxima; entreRajadas = s entre o início
+// de uma rajada e o da seguinte; velocidade = larguras de tela por segundo;
+// inclinacao = quanto a passada desce/sobe de um lado ao outro (px); nasce = s
+// até o pincel chegar ao tamanho cheio.
 const FANTASMA = {
-  maximo: 1, pausa: [1.2, 1.8], velocidade: [1900, 2300],
-  descanso: 5, // segundos sem mexer o mouse para o zigue-zague voltar
-  linhas: [0.33, 0.6], inclinacao: 30, cauda: 380, tamanho: 1.15, nasce: 0.12,
+  alturas: [711, 882, 1166, 1290],
+  intervalo: [0.38, 0.48],
+  entreRajadas: [4, 5.5],
+  velocidade: [1.4, 1.7],
+  inclinacao: 24,
+  variaAltura: 14, // px da foto de sorteio em cada altura
+  nasce: 0.08,
+  descanso: 5, // segundos sem mexer o mouse para as rajadas voltarem
 };
+let idGota = 0;
 const sorteio = (a, b) => a + Math.random() * (b - a);
 
 const gotasAtivas = [];
-let descendo = true;
-let proximaGota = performance.now() / 1000 + 1.4; // 1º zigue-zague logo após a entrada
-// Enquanto o mouse se mexe, não nasce gota nova (a que está passando termina
-// o caminho). Depois de FANTASMA.descanso segundos parado, volta.
+const rajada = { descendo: true, feitas: FANTASMA.alturas.length, lado: 1, inicio: 0 };
+let proximaPassada = performance.now() / 1000 + 1.4; // 1ª rajada logo após a entrada
+// Enquanto o mouse se mexe, não sai passada nova (as que estão passando
+// terminam). Depois de FANTASMA.descanso segundos parado, volta.
 let ultimoMouse = -Infinity;
 if (temHover) window.addEventListener('pointermove', () => { ultimoMouse = performance.now() / 1000; });
-const novaGota = () => {
-  const W = hero.clientWidth, H = hero.clientHeight;
-  // vira longe o bastante para a gota inteira (com a cauda) sair antes da curva
-  const fora = RASTRO.raio * FANTASMA.tamanho + FANTASMA.cauda + 40;
-  let alturas = FANTASMA.linhas.map((h) => H * (h + sorteio(-0.025, 0.025)));
-  if (!descendo) alturas = alturas.reverse();               // desce, sobe, desce...
-  descendo = !descendo;
-  let lado = Math.random() < 0.5 ? -1 : 1;                  // -1 começa na esquerda
-  const pts = [];
-  alturas.forEach((y) => {
-    const ini = lado < 0 ? -fora : W + fora, fim = lado < 0 ? W + fora : -fora;
-    pts.push([ini, y - FANTASMA.inclinacao / 2], [fim, y + FANTASMA.inclinacao / 2]);
-    lado = -lado;                                            // a próxima volta no sentido contrário
-  });
-  const acum = [0];
-  for (let i = 1; i < pts.length; i++) acum.push(acum[i - 1] + Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]));
-  return { pts, acum, total: acum[acum.length - 1], andado: 0, tempo: 0, vel: sorteio(...FANTASMA.velocidade) };
+// uma passada: da borda de um lado (fora da tela) até a do outro, na altura y
+const novaPassada = (y, lado) => {
+  const W = window.innerWidth;
+  const fora = TRILHA.raio * 0.6 + 60;
+  const ini = [lado < 0 ? -fora : W + fora, y - FANTASMA.inclinacao / 2];
+  const fim = [lado < 0 ? W + fora : -fora, y + FANTASMA.inclinacao / 2];
+  return { id: `gota${++idGota}`, ini, fim, total: Math.hypot(fim[0] - ini[0], fim[1] - ini[1]), andado: 0, tempo: 0, vel: W * sorteio(...FANTASMA.velocidade) };
 };
-// ponto do caminho a uma distância d do começo (preso entre o início e o fim)
-const pontoEm = (p, d) => {
-  const { pts, acum } = p;
-  d = Math.min(p.total, Math.max(0, d));
-  let i = 1;
-  while (i < acum.length - 1 && acum[i] < d) i++;
-  const [a, b] = [pts[i - 1], pts[i]];
-  const t = (d - acum[i - 1]) / Math.max(1, acum[i] - acum[i - 1]);
-  return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
-};
-// uma gota vira pontos do rastro (a largura vira a "idade": o shader afina o
-// rastro com a idade, então a idade desenha o formato da gota)
-const PONTOS_GOTA = 18;
-const pontosDaGota = (p, hr) => {
-  const fimCurso = p.andado - p.total;
-  const nasce = Math.min(1, p.tempo / FANTASMA.nasce);
-  const some = fimCurso > 0 ? 1 - fimCurso / FANTASMA.cauda : 1;
-  const escala = Math.sin((Math.max(0, Math.min(nasce, some)) * Math.PI) / 2);
-  const lista = [];
-  for (let k = 0; k < PONTOS_GOTA; k++) {
-    const sk = k / (PONTOS_GOTA - 1);                      // 0 = cabeça, 1 = ponta da cauda
-    const [x, y] = pontoEm(p, p.andado - sk * FANTASMA.cauda * escala);
-    const f = FANTASMA.tamanho * escala * Math.pow(1 - sk, 0.55);
-    // idade negativa = mais largo que o rastro do mouse (o shader aceita)
-    lista.push({ x: x + hr.left, y: y + hr.top, idade: 1 - Math.pow(Math.max(0.0001, f), 1 / 0.7), liga: k === 0 ? 0 : 1 });
-  }
-  return lista;
-};
-
+// altura (px da tela) de um ponto da foto do hero
+const alturaNaTela = (yFoto) => { const r = area.getBoundingClientRect(); return r.top + yFoto * (r.height / 1600); };
+// a cada quadro cada passada vira um pincel na frente dela (o rastro de água
+// atrás é a própria tinta escorrendo)
 let quadroAnterior = performance.now() / 1000;
-const corpoFantasma = () => {
+const pintarFantasmas = () => {
   const agora = performance.now() / 1000;
   const dt = Math.min(0.05, agora - quadroAnterior);
   quadroAnterior = agora;
-  if (reduzir) return [];
-  // mouse mexendo: pausa o zigue-zague; volta depois do descanso
+  if (reduzir || !trilha) return;
+  // mouse mexendo: segura as passadas novas; voltam depois do descanso
   if (agora - ultimoMouse < FANTASMA.descanso) {
-    proximaGota = Math.max(proximaGota, ultimoMouse + FANTASMA.descanso);
+    proximaPassada = Math.max(proximaPassada, ultimoMouse + FANTASMA.descanso);
+  } else if (agora >= proximaPassada) {
+    const n = FANTASMA.alturas.length;
+    if (rajada.feitas >= n) { // começa uma rajada nova (inverte: desce ↔ sobe)
+      rajada.descendo = !rajada.descendo;
+      rajada.feitas = 0;
+      rajada.lado = Math.random() < 0.5 ? -1 : 1;
+      rajada.inicio = agora;
+    }
+    const k = rajada.descendo ? rajada.feitas : n - 1 - rajada.feitas;
+    const y = alturaNaTela(FANTASMA.alturas[k] + sorteio(-1, 1) * FANTASMA.variaAltura);
+    gotasAtivas.push(novaPassada(y, rajada.lado));
+    rajada.lado = -rajada.lado; // a próxima vem do outro lado
+    rajada.feitas++;
+    proximaPassada = rajada.feitas < n
+      ? agora + sorteio(...FANTASMA.intervalo)
+      : rajada.inicio + sorteio(...FANTASMA.entreRajadas);
   }
-  // uma gota por vez: a próxima só nasce depois que a anterior saiu + a pausa
-  else if (agora >= proximaGota && gotasAtivas.length < FANTASMA.maximo) {
-    gotasAtivas.push(novaGota());
-  }
-  const hr = hero.getBoundingClientRect();
-  const todos = [];
   for (let i = gotasAtivas.length - 1; i >= 0; i--) {
     const p = gotasAtivas[i];
     p.tempo += dt;
     p.andado += p.vel * dt;
-    if (p.andado - p.total > FANTASMA.cauda) {
-      gotasAtivas.splice(i, 1);
-      proximaGota = agora + sorteio(...FANTASMA.pausa); // pausa conta a partir da saída
-      continue;
-    }
-    todos.push(...pontosDaGota(p, hr));
+    if (p.andado > p.total) { gotasAtivas.splice(i, 1); continue; }
+    const t = p.andado / p.total;
+    const cresce = Math.sin((Math.min(1, p.tempo / FANTASMA.nasce) * Math.PI) / 2);
+    trilha.pincel(p.id, [p.ini[0] + (p.fim[0] - p.ini[0]) * t, p.ini[1] + (p.fim[1] - p.ini[1]) * t],
+      TRILHA.raio * TRILHA.pincelGota * cresce, { forca: TRILHA.forcaGota });
   }
-  return todos;
 };
 
 // Desenha só enquanto o hero está na tela
+const medirBarriga = criarBarriga();
 let visivel = true;
 new IntersectionObserver(([e]) => { visivel = e.isIntersecting; }).observe(hero);
 gsap.ticker.add(() => {
+  // rastro de água: mouse e gotas pintam, a tinta escorre (um passo)
+  if (trilha) {
+    if (pincelMouse) trilha.pincel('mouse', pincelMouse, TRILHA.raio * TRILHA.pincelMouse, { forcaPorMovimento: true });
+    pintarFantasmas();
+    trilha.passo();
+  }
+  // cortina: a barriga afunda com a velocidade; capacete e fundo usam a mesma
+  const barriga = medirBarriga(cap.cortina);
+  cap.barriga = barriga;
+  if (topo) { topo.U.uCortina.value = cap.cortina; topo.U.uBarriga.value = barriga; topo.quadro(); }
   if (!visivel) return;
   // a foto se mexe com o parallax: reposiciona o brilho/lente todo quadro
   if (mouse) cap.mover(...mouse);
-  const pontos = juntarRastros(rastro.atualizar(), corpoFantasma());
-  cap.definirRastro(pontos);
-  topo?.definirRastro(pontos);
-  if (topo) topo.U.uCortina.value = cap.cortina; // a cortina inverte o fundo junto
   // textos escuros viram creme quando a borda da cortina passa por eles
-  document.body.classList.toggle('cortina-topo', cap.cortina > 0.09);
-  document.body.classList.toggle('cortina-base', cap.cortina > 0.6);
+  // (topo: marca e menu; base: título e card, perto da lateral esquerda)
+  document.body.classList.toggle('cortina-topo', cap.cortina > 0 && bordaCortina(0.05, cap.cortina, barriga) > 0.09);
+  document.body.classList.toggle('cortina-base', cap.cortina > 0 && bordaCortina(0.08, cap.cortina, barriga) > 0.69);
   cap.tick();
   const l = cap.lenteNaTela();
   anel.style.transform = `translate(${l.x}px, ${l.y}px)`;
@@ -266,7 +265,7 @@ gsap.timeline({
 
 // Gancho de teste (só no modo dev)
 if (import.meta.env.DEV) window.__site = {
-  gsap, cap, lenis, rastro,
+  gsap, cap, lenis, trilha, topo,
   // teste: lista das gotas em rasante e uma função para criar uma agora
-  gotas: { lista: gotasAtivas, nova: () => gotasAtivas.push(novaGota()) },
+  gotas: { lista: gotasAtivas, rajada, agora: () => { proximaPassada = 0; ultimoMouse = -Infinity; } },
 };

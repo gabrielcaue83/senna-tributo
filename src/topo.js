@@ -1,5 +1,6 @@
 import * as THREE from 'three';
-import { RASTRO, GLSL_RASTRO } from './rastro.js';
+import { GLSL_TRILHA } from './rastro.js';
+import { GLSL_CORTINA } from './cortina.js';
 
 // Fundo de curvas de nível (como um mapa topográfico), desenhado uma vez
 // num canvas fixo. Ruído suave + "marching squares" para achar as linhas.
@@ -126,6 +127,14 @@ float snoise(vec3 v){
   return 42.0 * dot(m*m, vec4(dot(p0,x0), dot(p1,x1), dot(p2,x2), dot(p3,x3)));
 }`;
 
+// Aparência das curvas de nível do fundo:
+// "zoom" = tamanho de um "morro" em px (maior = curvas maiores, menos linhas);
+// "niveis" = quantas linhas cabem na altura de um morro (menos = mais limpo);
+// "detalhe" = quanto das ondulações miúdas entra (0 = curvas bem lisas);
+// "velocidade" = quão rápido as curvas andam e mudam (era 0,035).
+export const TOPO = { zoom: 1150, niveis: 4, detalhe: 0.12, velocidade: 0.065 };
+const f = (v) => v.toFixed(3); // número com ponto decimal para o GLSL
+
 const FRAG = /* glsl */ `
 precision highp float;
 uniform float uTempo, uFase, uDpr, uBase, uForca;
@@ -135,16 +144,17 @@ uniform vec3 uCor, uCreme;
 uniform float uMancha;   // 0 = desliga; 1 = gotas invertem as cores do fundo
 uniform float uCortina;  // 0 a 1: cortina descendo do topo (também inverte)
 ${NOISE}
-${GLSL_RASTRO}
+${GLSL_TRILHA}
+${GLSL_CORTINA}
 void main() {
   vec2 px = gl_FragCoord.xy / uDpr;          // pixel em CSS
-  vec2 p = px / 520.0;                        // tamanho dos "morros"
-  float t = uTempo * 0.035;
-  // relevo: três camadas de ruído que mudam devagar (as linhas "andam")
-  float n = snoise(vec3(p + vec2(t * 0.6, t * 0.2), t)) * 0.65
-          + snoise(vec3(p * 2.1 + 7.0, t * 1.3)) * 0.25
-          + snoise(vec3(p * 4.3 + 3.0, t * 1.7)) * 0.10;
-  float v = n * 7.0;
+  vec2 p = px / ${f(TOPO.zoom)};              // tamanho dos "morros"
+  float t = uTempo * ${f(TOPO.velocidade)};
+  // relevo: uma camada grande e um pouco de ondulação miúda, mudando devagar
+  // (as linhas "andam")
+  float n = snoise(vec3(p + vec2(t * 0.6, t * 0.2), t)) * (1.0 - ${f(TOPO.detalhe)})
+          + snoise(vec3(p * 2.1 + 7.0, t * 1.3)) * ${f(TOPO.detalhe)};
+  float v = n * ${f(TOPO.niveis)};
   float d = abs(fract(v + 0.5) - 0.5);       // distância até a linha mais próxima
   float w = fwidth(v);
   float linha = 1.0 - smoothstep(w * 0.6, w * 1.6, d);
@@ -156,14 +166,14 @@ void main() {
   float dist = length(px - uCentro);
   float anel = exp(-pow((dist - r) / 170.0, 2.0)) * (1.0 - uFase);
   float a = linha * (uBase * (0.45 + 0.55 * aparece) + uForca * anel);
-  // dentro das gotas (rastro do mouse e rasantes) as cores do fundo invertem:
-  // o fundo vira verde-escuro e as curvas de nível ficam claras
-  float inv = smoothstep(0.42, 0.58, mascaraRastro(px)) * uMancha;
-  // cortina: desce do topo até a base, com a borda ondulada (mesma conta do capacete)
+  // dentro do rastro de água (mouse e gotas fantasmas, rastro.js) as cores do
+  // fundo invertem: o fundo vira verde-escuro e as curvas ficam claras
+  vec2 tela = vec2(px.x, uTela.y - px.y); // px da tela, y para baixo (igual ao capacete)
+  float inv = trilha(tela, uTela) * uMancha;
+  // cortina: desce do topo até a base numa barriga só (mesma conta do capacete)
   if (uCortina > 0.0) {
-    float ondaC = (sin(px.x * 0.011 + uTempo * 2.4) + 0.5 * sin(px.x * 0.027 - uTempo * 3.1)) * 0.025;
     float doTopo = (uTela.y - px.y) / uTela.y;
-    inv = max(inv, 1.0 - smoothstep(-0.004, 0.004, doTopo - (uCortina * 1.15 + ondaC)));
+    inv = max(inv, 1.0 - smoothstep(-0.004, 0.004, doTopo - bordaCortina(px.x / uTela.x, uCortina)));
   }
   float linhaClara = linha * (0.45 + 0.4 * aparece);
   vec3 corDentro = mix(uCor, uCreme, linhaClara);
@@ -193,8 +203,8 @@ export function criarTopoVivo(canvas, { centro, periodo = 4, cor = '#0f2a1d', cr
     uCreme: { value: new THREE.Vector3(...hexRGB(creme)) },
     uMancha: { value: mancha },
     uCortina: { value: 0 },
-    uRastro: { value: Array.from({ length: RASTRO.capacidade }, () => new THREE.Vector4()) },
-    uRastroN: { value: 0 }, uRastroR: { value: RASTRO.raio }, uRastroT: { value: 0 },
+    uBarriga: { value: 0.06 },
+    uTrilha: { value: null }, uTrilhaT: { value: 0 }, // tinta do rastro de água
   };
   const cena = new THREE.Scene();
   const cam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
@@ -214,27 +224,28 @@ export function criarTopoVivo(canvas, { centro, periodo = 4, cor = '#0f2a1d', cr
   window.addEventListener('resize', medir);
 
   const parado = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  // desenhado a cada quadro por main.js, logo depois da simulação do rastro
+  // (assim a tinta do fundo e a do capacete são sempre do mesmo quadro)
   const quadro = () => {
     const s = performance.now() / 1000;
     U.uTempo.value = s;
+    U.uTrilhaT.value = s;
+    if (U.uTrilha.value) U.uTrilha.value.needsUpdate = true;
     U.uFase.value = parado ? 1 : (s % periodo) / periodo;
     const [x, y] = centro ? centro() : [window.innerWidth / 2, window.innerHeight / 2];
     U.uCentro.value.set(x, window.innerHeight - y);
     renderer.render(cena, cam);
   };
-  if (parado) { quadro(); window.addEventListener('resize', quadro); }
-  else renderer.setAnimationLoop(quadro);
   return {
-    renderer, U,
-    // rastro do mouse em px da tela: [{ x, y, idade, liga }]
-    definirRastro(lista) {
-      const n = Math.min(lista.length, RASTRO.capacidade);
-      for (let i = 0; i < n; i++) {
-        const p = lista[lista.length - n + i];
-        U.uRastro.value[i].set(p.x, window.innerHeight - p.y, p.idade, p.liga);
-      }
-      U.uRastroN.value = n;
-      U.uRastroT.value = performance.now() / 1000;
+    renderer, U, quadro,
+    // tinta do rastro de água (canvas da simulação em rastro.js)
+    usarTrilha(canvasTrilha) {
+      if (!canvasTrilha) return;
+      const t = new THREE.CanvasTexture(canvasTrilha);
+      t.colorSpace = THREE.NoColorSpace;
+      t.minFilter = t.magFilter = THREE.LinearFilter;
+      t.generateMipmaps = false;
+      U.uTrilha.value = t;
     },
   };
 }
