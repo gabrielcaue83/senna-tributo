@@ -20,9 +20,6 @@ const FOTO = { w: 2000, h: 1600 };
 // escala (px da foto por unidade do modelo), "largura" aperta só na
 // horizontal; giro vira a frente para a câmera.
 const CAP = { x: 1009, y: 846, escala: 742.1, largura: 1, giroY: 0 };
-// Polígonos por cima do capacete revelado: ficam claros (para aparecer até
-// no visor escuro). "forca" = quanto eles aparecem ali (1 = igual ao resto).
-const FIO_NO_CAPACETE = { cor: '#f2efe3', forca: 0.7 };
 // Volume dos polígonos (WebGL): as linhas de frente para a câmera ficam fracas
 // ("centro") e as das curvas/bordas ficam fortes, como num raio X do casco.
 // "sombra" = quanto o lado oposto ao mouse escurece (luz vinda do mouse).
@@ -235,11 +232,9 @@ float revelado() {
   };
   // depthTest ligado: as linhas da parte de trás ficam escondidas pela
   // máscara de profundidade (ver "mascara" no carregamento)
-  // Por cima do capacete revelado (rastro, gota, cortina) os polígonos
-  // continuam, mas claros (FIO_NO_CAPACETE).
+  // Onde o capacete foi revelado (rastro, gotas, cortina) os polígonos NÃO
+  // aparecem: eles ficam só sobre o rosto.
   const uNoCap = {
-    uCorNoCap: { value: new THREE.Color(FIO_NO_CAPACETE.cor) },
-    uForcaNoCap: { value: FIO_NO_CAPACETE.forca },
     uCentro: { value: FIO_3D.centro }, uSombra: { value: FIO_3D.sombra },
     uLuzDir: { value: new THREE.Vector3(-0.4, 0.5, 0.75).normalize() }, // de onde vem a luz (segue o mouse)
   };
@@ -252,8 +247,9 @@ float revelado() {
   vDestaque = destaque; // 1 na moldura do visor
   vNormalV = normalize(normalMatrix * normal); // para onde aquele ponto do casco olha`);
     sh.fragmentShader = GLSL_REVELA +
-      '\nuniform float uOnda, uGeral, uForca, uLinha, uForcaNoCap, uCentro, uSombra;\nuniform vec3 uCorNoCap, uLuzDir;\nvarying float vAltura, vDestaque;\nvarying vec3 vNormalV;\n' +
+      '\nuniform float uOnda, uGeral, uForca, uLinha, uCentro, uSombra;\nuniform vec3 uLuzDir;\nvarying float vAltura, vDestaque;\nvarying vec3 vNormalV;\n' +
       sh.fragmentShader.replace('#include <opaque_fragment>', `
+  if (revelado() > 0.5) discard; // capacete à mostra ali: sem polígonos
   float linhaP = exp(-pow((vAltura - uOnda) / 0.03, 2.0)); // linha fina do pulso
   float jaPassou = smoothstep(uOnda - 0.015, uOnda + 0.015, vAltura); // acima da linha: já apareceu
   diffuseColor.a = min(1.0, diffuseColor.a * (uForca * jaPassou * uGeral + uLinha * linhaP * uGeral));
@@ -262,9 +258,6 @@ float revelado() {
   float curva = pow(1.0 - clamp(nv.z, 0.0, 1.0), 1.3);
   float luz = max(dot(nv, uLuzDir), 0.0);
   diffuseColor.a *= mix(uCentro, 1.0, max(curva, vDestaque)) * mix(1.0 + uSombra * 0.4, 1.0 - uSombra, luz);
-  float noCap = revelado(); // em cima do capacete revelado: linhas claras
-  diffuseColor.rgb = mix(diffuseColor.rgb, uCorNoCap, noCap);
-  diffuseColor.a *= mix(1.0, uForcaNoCap, noCap);
   #include <opaque_fragment>`);
   };
 
@@ -410,14 +403,6 @@ float revelado() {
     uPulso.uOnda.value = PULSO.topo - desce * (PULSO.topo - PULSO.base);
     const fim = (fase - (1 - PULSO.some)) / PULSO.some; // 0..1 no trecho final
     uPulso.uGeral.value = fim <= 0 ? 1 : 1 - fim * fim * (3 - 2 * fim);
-    }
-    // capacete 100% à mostra (cortina no fim): para de piscar e os polígonos
-    // ficam parados por cima (a transição é suave no finzinho da cortina)
-    const c = U.uCortina.value;
-    const calmo = c <= 0.85 ? 0 : Math.min(1, (c - 0.85) / 0.15) ** 2 * (3 - 2 * Math.min(1, (c - 0.85) / 0.15));
-    if (calmo > 0) {
-      uPulso.uOnda.value += (PULSO.base - uPulso.uOnda.value) * calmo;
-      uPulso.uGeral.value += (1 - uPulso.uGeral.value) * calmo;
     }
 
     U.uTempo.value = performance.now() / 1000;

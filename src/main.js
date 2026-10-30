@@ -38,7 +38,7 @@ const cap = criarCapacete({ canvas: document.querySelector('.hero__gl'), area })
 // capacete inteiro. Mouse sai = a cortina sobe e tudo volta ao normal.
 // "acelera" = como ela desce: começa devagar e vai pegando impulso (o formato,
 // uma barriga só que afunda com a velocidade, fica em cortina.js).
-const CORTINA = { espera: 2, desce: 1.5, sobe: 1, acelera: 'power3.in' };
+const CORTINA = { espera: 1, desce: 1.5, sobe: 1, acelera: 'power3.in' };
 const cargaCorrida = document.querySelector('.corrida__carga i');
 let esperaCortina = null;
 criarCorrida(document.querySelector('.corrida'), {
@@ -47,11 +47,17 @@ criarCorrida(document.querySelector('.corrida'), {
     esperaCortina?.kill();
     esperaCortina = gsap.fromTo(cargaCorrida, { scaleX: 0 }, {
       scaleX: 1, duration: CORTINA.espera, ease: 'none',
-      onComplete: () => gsap.to(cap, { cortina: 1, duration: CORTINA.desce, ease: CORTINA.acelera, overwrite: true }),
+      onComplete: () => {
+        // a cortina vai descer: o Senna volta para a posição padrão e para de seguir o mouse
+        seguirMouse = false;
+        voltarAoCentro(CORTINA.desce, CORTINA.acelera);
+        gsap.to(cap, { cortina: 1, duration: CORTINA.desce, ease: CORTINA.acelera, overwrite: true });
+      },
     });
   },
   aoSair: () => {
     esperaCortina?.kill();
+    seguirMouse = true; // volta a acompanhar no próximo movimento do mouse
     gsap.to(cargaCorrida, { scaleX: 0, duration: 0.3, ease: 'power2.out' });
     gsap.to(cap, { cortina: 0, duration: CORTINA.sobe, ease: 'power3.inOut', overwrite: true });
   },
@@ -105,15 +111,49 @@ hero.addEventListener('pointerleave', () => gsap.to(cap, { fio: fioBase, duratio
 // A palavra SENNA do fundo vai um tiquinho ao contrário, para dar profundidade.
 // fotoX/fotoY/palavra = deslocamento total de um canto da tela ao outro (px).
 const PARALLAX = { fotoX: 80, fotoY: 44, palavraX: 50, palavraY: 22 };
+// Enquanto a cortina do card está descida, o Senna fica parado no centro
+// (posição padrão) e não acompanha o mouse; volta a acompanhar quando o mouse
+// sai do card.
+// A posição fica num lugar só ("pos", de -0,5 a 0,5; 0, 0 = posição padrão):
+// o mouse define o alvo e a posição chega nele suavemente a cada quadro; a
+// volta da cortina anima a mesma posição. Assim corpo, cabeça e palavra
+// sempre andam juntos.
+let seguirMouse = true;
+const pos = { nx: 0, ny: 0 }, alvoPos = { nx: 0, ny: 0 };
+let voltaTween = null;
+const MOUSE_SUAVE = 3.2; // quão rápido o Senna alcança o mouse (maior = mais rápido)
+const fotoEl = document.querySelector('.hero__foto'), palavraEl = document.querySelector('.hero__palavra');
+const aplicarPosicao = () => {
+  gsap.set(fotoEl, { x: pos.nx * PARALLAX.fotoX, y: pos.ny * PARALLAX.fotoY }); // imagem inteira desliza
+  gsap.set(palavraEl, { x: -pos.nx * PARALLAX.palavraX, y: -pos.ny * PARALLAX.palavraY });
+  cap.inclinar(pos.nx, pos.ny);                                                  // cabeça + capacete viram em 3D
+};
+// volta para a posição padrão no mesmo ritmo da cortina (desce junto com ela,
+// como se o Senna soubesse o que vai acontecer)
+const voltarAoCentro = (duracao, ease) => {
+  if (!temHover || reduzir) return;
+  alvoPos.nx = alvoPos.ny = 0;
+  voltaTween?.kill();
+  voltaTween = gsap.to(pos, { nx: 0, ny: 0, duration: duracao, ease });
+};
+let quadroPos = performance.now();
+const atualizarPosicao = () => {
+  if (!temHover || reduzir) return;
+  const agora = performance.now();
+  const dt = Math.min(0.1, (agora - quadroPos) / 1000);
+  quadroPos = agora;
+  if (!voltaTween?.isActive()) {
+    const k = 1 - Math.exp(-dt * MOUSE_SUAVE);
+    pos.nx += (alvoPos.nx - pos.nx) * k;
+    pos.ny += (alvoPos.ny - pos.ny) * k;
+  }
+  aplicarPosicao();
+};
 if (temHover && !reduzir) {
-  const opc = { duration: 1.2, ease: 'power3.out' };
-  const fotoX = gsap.quickTo('.hero__foto', 'x', opc), fotoY = gsap.quickTo('.hero__foto', 'y', opc);
-  const palX = gsap.quickTo('.hero__palavra', 'x', opc), palY = gsap.quickTo('.hero__palavra', 'y', opc);
   window.addEventListener('pointermove', (e) => {
-    const nx = e.clientX / window.innerWidth - 0.5, ny = e.clientY / window.innerHeight - 0.5;
-    fotoX(nx * PARALLAX.fotoX); fotoY(ny * PARALLAX.fotoY); // imagem inteira desliza
-    cap.inclinar(nx, ny);                                   // cabeça + capacete viram em 3D
-    palX(-nx * PARALLAX.palavraX); palY(-ny * PARALLAX.palavraY);
+    if (!seguirMouse) return;
+    alvoPos.nx = e.clientX / window.innerWidth - 0.5;
+    alvoPos.ny = e.clientY / window.innerHeight - 0.5;
   });
 }
 
@@ -217,6 +257,7 @@ gsap.ticker.add(() => {
   if (topo) { topo.U.uCortina.value = cap.cortina; topo.U.uBarriga.value = barriga; topo.quadro(); }
   if (!visivel) return;
   // a foto se mexe com o parallax: reposiciona o brilho/lente todo quadro
+  atualizarPosicao(); // Senna acompanha o mouse (ou volta ao centro com a cortina)
   if (mouse) cap.mover(...mouse);
   // textos escuros viram creme quando a borda da cortina passa por eles
   // (topo: marca e menu; base: título e card, perto da lateral esquerda)

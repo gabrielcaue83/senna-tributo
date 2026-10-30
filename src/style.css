@@ -68,8 +68,10 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
   width: clamp(54px, 4.8vw, 74px); display: block;
 }
 .barra__logo svg { display: block; width: 100%; height: auto; overflow: visible; }
-.logo-topo__contorno path { fill: none; stroke: var(--escuro); stroke-width: 14; stroke-linejoin: round; }
-.logo-topo__cheio path { fill: var(--escuro); }
+/* "S" do topo: verde sempre; amarelo enche com o mouse perto; borda escura fina */
+.logo-topo__base path { fill: var(--verde); }
+.logo-topo__cheio path { fill: var(--amarelo); }
+.logo-topo__contorno path { fill: none; stroke: var(--escuro); stroke-width: 7; stroke-linejoin: round; }
 .pill {
   display: inline-flex; align-items: center; gap: 8px;
   height: 40px; padding: 0 16px;
@@ -288,5 +290,4 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
 .logo-topo__contorno path, .logo-topo__cheio path { transition: stroke .35s, fill .35s; }
 body.cortina-topo .marca { color: var(--creme); }
 body.cortina-topo .logo-topo__contorno path { stroke: var(--creme); }
-body.cortina-topo .logo-topo__cheio path { fill: var(--creme); }
 body.cortina-base .hero__titulo { color: var(--creme); }

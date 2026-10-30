@@ -1,9 +1,10 @@
 import gsap from 'gsap';
 import logoSvg from './logo-senna.svg?raw';
 
-// "S" do Senna no topo, centralizado (sem o escrito SENNA). Fica só com o
-// contorno; quando o mouse chega perto, ele se preenche de baixo para cima e
-// esvazia quando o mouse se afasta.
+// "S" do Senna no topo, centralizado (sem o escrito SENNA). Fica sempre
+// preenchido de verde (aparece até em cima da mancha do rastro); quando o
+// mouse chega perto, ele se enche de amarelo de baixo para cima e volta ao
+// verde quando o mouse se afasta. Cores em style.css (.logo-topo__*).
 // perto = distância (px) do centro do "S" em que ele começa a encher.
 const LOGO = { perto: 110, formas: 3 };
 
@@ -17,6 +18,7 @@ export function criarLogoTopo(el, { temHover = true } = {}) {
   svg.setAttribute('aria-hidden', 'true');
   svg.innerHTML = `
     <defs><clipPath id="logo-topo-sobe"><rect class="logo-topo__nivel" x="0" y="0" width="1" height="1"/></clipPath></defs>
+    <g class="logo-topo__base">${formas.map((d) => `<path d="${d}"/>`).join('')}</g>
     <g class="logo-topo__cheio" clip-path="url(#logo-topo-sobe)">${formas.map((d) => `<path d="${d}"/>`).join('')}</g>
     <g class="logo-topo__contorno">${formas.map((d) => `<path d="${d}"/>`).join('')}</g>`;
   el.appendChild(svg);
